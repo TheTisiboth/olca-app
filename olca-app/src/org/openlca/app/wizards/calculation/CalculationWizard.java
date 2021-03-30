@@ -45,6 +45,7 @@ public class CalculationWizard extends Wizard {
 
 	private final Setup setup;
 	private final Logger log = LoggerFactory.getLogger(this.getClass());
+	private static boolean isComparisonWizard = false; // True, if we clicked on the comparison button
 
 	public CalculationWizard(ProductSystem system) {
 		this.setup = Setup.init(system);
@@ -60,6 +61,7 @@ public class CalculationWizard extends Wizard {
 			return;
 		var wizard = new CalculationWizard(system);
 		var dialog = new WizardDialog(UI.shell(), wizard);
+		isComparisonWizard = false;
 		dialog.open();
 	}
 
@@ -97,8 +99,12 @@ public class CalculationWizard extends Wizard {
 
 	@Override
 	public void addPages() {
-		addPage(new CalculationWizardPage(setup));
-		addPage(new DQSettingsPage(setup));
+		if (isComparisonWizard) {
+			addPage(new ComparisonWizardPage(setup));
+		} else {
+			addPage(new CalculationWizardPage(setup));
+			addPage(new DQSettingsPage(setup));
+		}
 	}
 
 	@Override
