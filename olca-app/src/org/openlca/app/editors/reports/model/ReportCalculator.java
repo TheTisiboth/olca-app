@@ -1,4 +1,4 @@
-package org.openlca.app.editors.projects.reports.model;
+package org.openlca.app.editors.reports.model;
 
 import java.util.Comparator;
 import java.util.List;
@@ -6,11 +6,13 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 
-import org.openlca.app.editors.projects.reports.model.ReportIndicatorResult.VariantResult;
-import org.openlca.app.editors.projects.results.ProjectResultData;
+import org.openlca.app.M;
+import org.openlca.app.db.Database;
+import org.openlca.app.editors.reports.model.ReportIndicatorResult.VariantResult;
+import org.openlca.app.util.MsgBox;
 import org.openlca.app.util.Numbers;
 import org.openlca.core.database.CurrencyDao;
-import org.openlca.core.database.IDatabase;
+import org.openlca.core.math.SystemCalculator;
 import org.openlca.core.matrix.NwSetTable;
 import org.openlca.core.model.Currency;
 import org.openlca.core.model.Project;
@@ -19,47 +21,60 @@ import org.openlca.core.model.descriptors.CategorizedDescriptor;
 import org.openlca.core.model.descriptors.ImpactDescriptor;
 import org.openlca.core.results.Contribution;
 import org.openlca.core.results.ProjectResult;
-import org.openlca.core.results.ResultItemView;
 import org.openlca.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ReportBuilder {
+public class ReportCalculator implements Runnable {
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
 
-	private final IDatabase db;
 	private final Project project;
-	private final ProjectResult result;
-	private final ResultItemView items;
+	private final Report report;
+	public boolean hadError = false;
 
-	private ReportBuilder(ProjectResultData data) {
-		this.db = data.db();
-		this.project = data.project();
-		this.result = data.result();
-		this.items = data.items();
+	public ReportCalculator(Project project, Report report) {
+		this.project = project;
+		this.report = report;
 	}
 
-	public static ReportBuilder of(ProjectResultData data) {
-		return new ReportBuilder(data);
-	}
-
-	public void fill(Report report) {
+	@Override
+	public void run() {
+		if (project == null || report == null)
+			return;
 		report.results.clear();
 		report.addedValues.clear();
 		report.netCosts.clear();
 		if (project.impactMethod == null)
 			return;
-		appendResults(report);
-		appendCostResults(report);
+		ProjectResult result;
+		try {
+			var calculator = new SystemCalculator(Database.get());
+			result = calculator.calculate(project);
+			hadError = false;
+		} catch (OutOfMemoryError e) {
+			MsgBox.error(M.OutOfMemory, M.CouldNotAllocateMemoryError);
+			hadError = true;
+			return;
+		} catch (Exception e) {
+			MsgBox.error("The calculation of the project failed "
+					+ "with an unexpected error: " + e.getMessage()
+					+ ". See the log file for further information.");
+			log.error("Calculation of project failed", e);
+			hadError = true;
+			return;
+		}
+		appendResults(result);
+		appendCostResults(result);
 		if (project.nwSet != null) {
-			appendNwFactors(report);
+			appendNwFactors();
 		}
 	}
 
-	private void appendNwFactors(Report report) {
+	private void appendNwFactors() {
 		try {
-			var table = NwSetTable.of(db, project.nwSet);
+			NwSetTable table = NwSetTable.of(
+					Database.get(), project.nwSet);
 			report.withNormalisation = table.hasNormalization();
 			report.withWeighting = table.hasWeighting();
 			for (ReportIndicator indicator : report.indicators) {
@@ -80,14 +95,14 @@ public class ReportBuilder {
 		}
 	}
 
-	private void appendResults(Report report) {
-		for (var impact : items.impacts()) {
-			var repResult = initReportResult(report, impact);
+	private void appendResults(ProjectResult result) {
+		for (ImpactDescriptor impact : result.getImpacts()) {
+			ReportIndicatorResult repResult = initReportResult(impact);
 			if (repResult == null)
 				continue; // should not add this indicator
 			report.results.add(repResult);
-			for (var variant : result.getVariants()) {
-				var varResult = new VariantResult();
+			for (ProjectVariant variant : result.getVariants()) {
+				VariantResult varResult = new VariantResult();
 				repResult.variantResults.add(varResult);
 				varResult.variant = variant.name;
 				varResult.totalAmount = result.getTotalImpactResult(
@@ -95,14 +110,13 @@ public class ReportBuilder {
 				List<Contribution<CategorizedDescriptor>> set = result
 						.getResult(variant)
 						.getProcessContributions(impact);
-				appendProcessContributions(report, set, varResult);
+				appendProcessContributions(set, varResult);
 			}
 		}
 	}
 
-	private ReportIndicatorResult initReportResult(
-		Report report, ImpactDescriptor impact) {
-		for (var indicator : report.indicators) {
+	private ReportIndicatorResult initReportResult(ImpactDescriptor impact) {
+		for (ReportIndicator indicator : report.indicators) {
 			if (!indicator.displayed)
 				continue;
 			if (Objects.equals(impact, indicator.descriptor))
@@ -112,7 +126,6 @@ public class ReportBuilder {
 	}
 
 	private void appendProcessContributions(
-			Report report,
 			List<Contribution<CategorizedDescriptor>> contributions,
 			VariantResult varResult) {
 		Contribution<Long> rest = new Contribution<>();
@@ -120,7 +133,7 @@ public class ReportBuilder {
 		rest.item = -1L;
 		rest.isRest = true;
 		rest.amount = 0;
-		Set<Long> ids = getContributionProcessIds(report);
+		Set<Long> ids = getContributionProcessIds();
 		Set<Long> foundIds = new TreeSet<>();
 		for (Contribution<CategorizedDescriptor> item : contributions) {
 			if (item.item == null)
@@ -144,9 +157,9 @@ public class ReportBuilder {
 		con.item = item.item.id;
 	}
 
-	private Set<Long> getContributionProcessIds(Report report) {
+	private Set<Long> getContributionProcessIds() {
 		Set<Long> ids = new TreeSet<>();
-		for (var process : report.processes) {
+		for (ReportProcess process : report.processes) {
 			ids.add(process.descriptor.id);
 		}
 		return ids;
@@ -168,7 +181,9 @@ public class ReportBuilder {
 		}
 	}
 
-	private void appendCostResults(Report report) {
+	private void appendCostResults(ProjectResult result) {
+		if (result == null)
+			return;
 		String currency = getCurrency();
 		for (ProjectVariant var : result.getVariants()) {
 			double costs = result.getResult(var).totalCosts;
@@ -191,7 +206,7 @@ public class ReportBuilder {
 
 	private String getCurrency() {
 		try {
-			CurrencyDao dao = new CurrencyDao(db);
+			CurrencyDao dao = new CurrencyDao(Database.get());
 			Currency c = dao.getReferenceCurrency();
 			if (c == null)
 				return "?";
