@@ -70,6 +70,7 @@ public class ProductComparison {
 	private Color chosenCategoryColor;
 	private ContributionResult contributionResult;
 	private List<ContributionResult> contributionResults;
+	private List<ReportIndicatorResult> projectContributionResults;
 	private int nonCutoffAmount;
 	private int cutOffSize;
 	private IDatabase db;
