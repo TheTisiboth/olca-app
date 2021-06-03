@@ -61,8 +61,7 @@ public class ReportCalculator implements Runnable {
 			hadError = true;
 			return;
 		} catch (Exception e) {
-			MsgBox.error("The calculation of the project failed "
-					+ "with an unexpected error: " + e.getMessage()
+			MsgBox.error("The calculation of the project failed " + "with an unexpected error: " + e.getMessage()
 					+ ". See the log file for further information.");
 			log.error("Calculation of project failed", e);
 			hadError = true;
@@ -77,8 +76,7 @@ public class ReportCalculator implements Runnable {
 
 	private void appendNwFactors() {
 		try {
-			NwSetTable table = NwSetTable.of(
-					Database.get(), project.nwSet);
+			NwSetTable table = NwSetTable.of(Database.get(), project.nwSet);
 			report.withNormalisation = table.hasNormalization();
 			report.withWeighting = table.hasWeighting();
 			for (ReportIndicator indicator : report.indicators) {
@@ -86,12 +84,10 @@ public class ReportCalculator implements Runnable {
 					continue;
 				long categoryId = indicator.descriptor.id;
 				if (table.hasNormalization()) {
-					indicator.normalisationFactor =
-							table.getNormalizationFactor(categoryId);
+					indicator.normalisationFactor = table.getNormalizationFactor(categoryId);
 				}
 				if (table.hasWeighting()) {
-					indicator.weightingFactor =
-							table.getWeightingFactor(categoryId);
+					indicator.weightingFactor = table.getWeightingFactor(categoryId);
 				}
 			}
 		} catch (Exception e) {
@@ -109,10 +105,8 @@ public class ReportCalculator implements Runnable {
 				VariantResult varResult = new VariantResult();
 				repResult.variantResults.add(varResult);
 				varResult.variant = variant.name;
-				varResult.totalAmount = result.getTotalImpactResult(
-						variant, impact);
-				List<Contribution<CategorizedDescriptor>> set = result
-						.getResult(variant)
+				varResult.totalAmount = result.getTotalImpactResult(variant, impact);
+				List<Contribution<CategorizedDescriptor>> set = result.getResult(variant)
 						.getProcessContributions(impact);
 				appendProcessContributions(set, varResult);
 			}
@@ -129,8 +123,7 @@ public class ReportCalculator implements Runnable {
 		return null;
 	}
 
-	private void appendProcessContributions(
-			List<Contribution<CategorizedDescriptor>> contributions,
+	private void appendProcessContributions(List<Contribution<CategorizedDescriptor>> contributions,
 			VariantResult varResult) {
 		Contribution<Long> rest = new Contribution<>();
 		varResult.contributions.add(rest);
@@ -152,8 +145,7 @@ public class ReportCalculator implements Runnable {
 		addDefaultContributions(ids, foundIds, varResult);
 	}
 
-	private void addContribution(VariantResult varResult,
-								 Contribution<CategorizedDescriptor> item) {
+	private void addContribution(VariantResult varResult, Contribution<CategorizedDescriptor> item) {
 		Contribution<Long> con = new Contribution<>();
 		varResult.contributions.add(con);
 		con.amount = item.amount;
@@ -172,8 +164,7 @@ public class ReportCalculator implements Runnable {
 	/**
 	 * Add zero-contributions for processes that were not found in a variant result.
 	 */
-	private void addDefaultContributions(Set<Long> ids, Set<Long> foundIds,
-										 VariantResult varResult) {
+	private void addDefaultContributions(Set<Long> ids, Set<Long> foundIds, VariantResult varResult) {
 		TreeSet<Long> notFound = new TreeSet<>(ids);
 		notFound.removeAll(foundIds);
 		for (long id : notFound) {
@@ -195,8 +186,7 @@ public class ReportCalculator implements Runnable {
 			double addedValue = costs == 0 ? 0 : -costs;
 			report.addedValues.add(cost(var, addedValue, currency));
 		}
-		Comparator<ReportCostResult> c =
-				(r1, r2) -> Strings.compare(r1.variant, r2.variant);
+		Comparator<ReportCostResult> c = (r1, r2) -> Strings.compare(r1.variant, r2.variant);
 		report.netCosts.sort(c);
 		report.addedValues.sort(c);
 	}
