@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import javax.swing.text.TableView;
+
 import org.eclipse.jface.viewers.ITableLabelProvider;
 import org.eclipse.jface.viewers.LabelProvider;
 import org.eclipse.jface.viewers.TableViewer;
@@ -34,10 +36,10 @@ public class ImpactCategoryTable {
 		var comp = new Composite(body, SWT.NONE);
 		comp.setLayout(new GridLayout(1, false));
 		var gridData = new GridData(SWT.NONE, SWT.FILL, true, true);
-		gridData.widthHint = 500;
+		gridData.widthHint = 625;
 		comp.setLayoutData(gridData);
 		categories.sort((c1, c2) -> c1.name.compareTo(c2.name));
-		if (target.equals(TargetCalculationEnum.IMPACT)) {
+		if (target.equals(TargetCalculationEnum.PRODUCT_SYSTEM)) {
 			this.categories = categories;
 		} else {
 			this.categories = new ArrayList<ImpactDescriptor>();
@@ -50,8 +52,12 @@ public class ImpactCategoryTable {
 		viewer.setLabelProvider(new CategoryLabelProvider());
 		new ModifySupport<CategoryVariant>(viewer).bind("Display", new DisplayModifier());
 		viewer.setInput(l);
-		Tables.bindColumnWidths(viewer, 0.80, 0.21);
+		Tables.bindColumnWidths(viewer, 0.9,0.22);
 		tableHeaderAction();
+		for (var column : viewer.getTable().getColumns()) {
+			column.pack();
+		}
+
 	}
 
 	/**
@@ -59,14 +65,14 @@ public class ImpactCategoryTable {
 	 */
 	private void tableHeaderAction() {
 		var column = viewer.getTable().getColumns()[1];
-		if (target.equals(TargetCalculationEnum.IMPACT))
+		if (target.equals(TargetCalculationEnum.PRODUCT_SYSTEM))
 			column.setImage(Icon.CHECK_TRUE.get());
 		var wrapper = new Object() {
 			boolean isCheckAll = true;
 		};
 		column.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
-				if (target.equals(TargetCalculationEnum.IMPACT)) {
+				if (target.equals(TargetCalculationEnum.PRODUCT_SYSTEM)) {
 					wrapper.isCheckAll = !wrapper.isCheckAll;
 					if (!wrapper.isCheckAll) {
 						column.setImage(Icon.CHECK_FALSE.get());
@@ -132,7 +138,7 @@ public class ImpactCategoryTable {
 			if (v.isDisabled != b)
 				return;
 			if (b) {
-				if (target.equals(TargetCalculationEnum.PRODUCT)) {
+				if (target.equals(TargetCalculationEnum.PROJECT)) {
 					for (var tableItem : viewer.getTable().getItems()) {
 						var data = (CategoryVariant) tableItem.getData();
 						if (data == null)
@@ -158,7 +164,7 @@ public class ImpactCategoryTable {
 
 		public CategoryVariant(ImpactDescriptor c) {
 			category = c;
-			isDisabled = target.equals(TargetCalculationEnum.IMPACT) ? false : true;
+			isDisabled = target.equals(TargetCalculationEnum.PRODUCT_SYSTEM) ? false : true;
 		}
 	}
 }

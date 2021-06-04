@@ -1,7 +1,7 @@
 package org.openlca.app.results.comparison.display;
 
 public enum TargetCalculationEnum {
-	IMPACT("Impact categories"), PRODUCT("Product systems");
+	PRODUCT_SYSTEM("Product system"), PROJECT("Project");
 
 	private String criteria;
 

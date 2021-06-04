@@ -25,18 +25,18 @@ public class ComparisonPage extends FormPage {
 	public ComparisonPage(ResultEditor<?> editor) {
 		super(editor, "ComparisonDiagram", "Comparison Diagram");
 		this.editor = editor;
-		target = TargetCalculationEnum.IMPACT;
+		target = TargetCalculationEnum.PRODUCT_SYSTEM;
 	}
 
 	public ComparisonPage(ProjectResultEditor editor) {
 		super(editor, "ComparisonDiagram", "Comparison Diagram");
 		this.editor = editor;
-		target = TargetCalculationEnum.PRODUCT;
+		target = TargetCalculationEnum.PROJECT;
 	}
 
 	@Override
 	protected void createFormContent(IManagedForm mform) {
-		if (target == TargetCalculationEnum.IMPACT) {
+		if (target == TargetCalculationEnum.PRODUCT_SYSTEM) {
 			var e = (ResultEditor<?>) editor;
 			ScrolledForm form = UI.formHeader(mform, Labels.name(e.setup.productSystem), Images.get(e.result));
 			FormToolkit tk = mform.getToolkit();

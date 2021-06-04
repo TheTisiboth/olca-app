@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.text.WordUtils;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.PaintEvent;
 import org.eclipse.swt.events.PaintListener;
@@ -31,11 +32,11 @@ import org.eclipse.swt.widgets.Spinner;
 import org.eclipse.ui.forms.editor.FormEditor;
 import org.eclipse.ui.forms.widgets.FormToolkit;
 import org.eclipse.ui.forms.widgets.Section;
-import org.openlca.app.App;
 import org.openlca.app.db.Database;
 import org.openlca.app.editors.projects.results.ProjectResultData;
 import org.openlca.app.editors.projects.results.ProjectResultEditor;
 import org.openlca.app.rcp.images.Icon;
+import org.openlca.app.rcp.images.Images;
 import org.openlca.app.results.ResultEditor;
 import org.openlca.app.results.comparison.component.ColorationCombo;
 import org.openlca.app.results.comparison.component.HighlightCategoryCombo;
@@ -45,9 +46,7 @@ import org.openlca.app.util.UI;
 import org.openlca.core.database.CategoryDao;
 import org.openlca.core.database.IDatabase;
 import org.openlca.core.database.ImpactMethodDao;
-import org.openlca.core.math.CalculationSetup;
-import org.openlca.core.math.SystemCalculator;
-import org.openlca.core.model.ProjectVariant;
+import org.openlca.core.model.ModelType;
 import org.openlca.core.model.descriptors.CategoryDescriptor;
 import org.openlca.core.model.descriptors.ImpactDescriptor;
 import org.openlca.core.model.descriptors.ImpactMethodDescriptor;
@@ -91,11 +90,11 @@ public class ProductComparison {
 		config = new Config(); // Comparison config
 		colorCellCriteria = config.colorCellCriteria;
 		targetCalculation = target;
-		if (target.equals(TargetCalculationEnum.IMPACT)) {
+		if (target.equals(TargetCalculationEnum.PRODUCT_SYSTEM)) {
 			var e = (ResultEditor<?>) editor;
 			impactMethod = e.setup.impactMethod;
 			contributionResult = e.result;
-		} else if (target.equals(TargetCalculationEnum.PRODUCT)) {
+		} else if (target.equals(TargetCalculationEnum.PROJECT)) {
 			var e = (ProjectResultEditor) editor;
 			projectResultData = e.getData();
 			e.getData().result().getContributions(new ImpactDescriptor());
@@ -104,7 +103,7 @@ public class ProductComparison {
 		contributionsList = new ArrayList<>();
 		cacheMap = new HashMap<>();
 		chosenProcessCategory = -1;
-		margin = new Point(200, 65);
+		margin = new Point(270, 75);
 		rectHeight = 30;
 		gapBetweenRect = 150;
 		theoreticalScreenHeight = margin.y * 2 + gapBetweenRect * 2;
@@ -323,7 +322,7 @@ public class ProductComparison {
 	private void initContributionsList() {
 		var vBar = canvas.getVerticalBar();
 		contributionsList = new ArrayList<>();
-		if (TargetCalculationEnum.IMPACT.equals(targetCalculation)) {
+		if (TargetCalculationEnum.PRODUCT_SYSTEM.equals(targetCalculation)) {
 			var impactCategories = impactCategoryTable.getImpactDescriptors();
 			impactCategories.stream().forEach(category -> {
 				var contributionList = contributionResult.getProcessContributions(category);
@@ -474,12 +473,16 @@ public class ProductComparison {
 			double maxSumAmount) {
 		var p = contributionsList.get(contributionsIndex);
 		int rectWidth = (int) maxRectWidth;
-		Point textPos = new Point(rectEdge.x - margin.x, rectEdge.y + 8);
-		if (TargetCalculationEnum.PRODUCT.equals(targetCalculation)) {
-			gc.drawText("Product System : " + p.getProductSystemName(), textPos.x, textPos.y);
-			textPos.y += 25;
+		Point textPos = new Point(rectEdge.x - margin.x, rectEdge.y + 6);
+		if (TargetCalculationEnum.PROJECT.equals(targetCalculation)) {
+			gc.drawImage(Images.get(ModelType.PRODUCT_SYSTEM), textPos.x, textPos.y + 6);
+			var wrappedSystemName = WordUtils.wrap(p.getProductSystemName(), 30);
+			gc.drawText(wrappedSystemName, textPos.x + 20, textPos.y);
+		} else {
+			gc.drawImage(Images.get(ModelType.IMPACT_CATEGORY), textPos.x, textPos.y + 6);
+			var wrappedCategoryName = WordUtils.wrap(p.getImpactCategoryName(), 30);
+			gc.drawText(wrappedCategoryName, textPos.x + 20, textPos.y);
 		}
-		gc.drawText(p.getImpactCategoryName(), textPos.x, textPos.y);
 		handleCells(gc, rectEdge, contributionsIndex, p, rectWidth, maxSumAmount);
 
 		// Draw an arrow above the first rectangle contributions to show the way
@@ -508,32 +511,32 @@ public class ProductComparison {
 		startPoint = new Point(origin.x, origin.y + offset);
 		endPoint = new Point(origin.x, origin.y - offset);
 		drawLine(gc, startPoint, endPoint, null, null);
-
-		gc.drawText("0%", endPoint.x - 7, endPoint.y - 20);
+		var verticalOffset = 30;
+		gc.drawText("0%", endPoint.x - 7, endPoint.y - verticalOffset);
 
 		startPoint = new Point((int) (origin.x + maxRectWidth * 0.25), origin.y + offset);
 		endPoint = new Point((int) (origin.x + maxRectWidth * 0.25), origin.y - offset);
 		drawLine(gc, startPoint, endPoint, null, null);
 
-		gc.drawText("25%", endPoint.x - 7, endPoint.y - 20);
+		gc.drawText("25%", endPoint.x - 7, endPoint.y - verticalOffset);
 
 		startPoint = new Point((int) (origin.x + maxRectWidth * 0.5), origin.y + offset);
 		endPoint = new Point((int) (origin.x + maxRectWidth * 0.5), origin.y - offset);
 		drawLine(gc, startPoint, endPoint, null, null);
 
-		gc.drawText("50%", endPoint.x - 7, endPoint.y - 20);
+		gc.drawText("50%", endPoint.x - 7, endPoint.y - verticalOffset);
 
 		startPoint = new Point((int) (origin.x + maxRectWidth * 0.75), origin.y + offset);
 		endPoint = new Point((int) (origin.x + maxRectWidth * 0.75), origin.y - offset);
 		drawLine(gc, startPoint, endPoint, null, null);
 
-		gc.drawText("75%", endPoint.x - 7, endPoint.y - 20);
+		gc.drawText("75%", endPoint.x - 7, endPoint.y - verticalOffset);
 
 		startPoint = new Point((int) (origin.x + maxRectWidth), origin.y + offset);
 		endPoint = new Point((int) (origin.x + maxRectWidth), origin.y - offset);
 		drawLine(gc, startPoint, endPoint, null, null);
 
-		gc.drawText("100%", endPoint.x - 7, endPoint.y - 20);
+		gc.drawText("100%", endPoint.x - 7, endPoint.y - verticalOffset);
 
 	}
 
