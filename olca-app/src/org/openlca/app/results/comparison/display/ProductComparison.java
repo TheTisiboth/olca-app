@@ -147,12 +147,11 @@ public class ProductComparison {
 		addResizeEvent(row2, canvas);
 
 		initImpactCategories();
-		chooseImpactCategoriesMenu(comp);
-		initContributionsList();
 
 		var settingsBody = tk.createComposite(comp, SWT.NULL);
-		UI.gridLayout(settingsBody, 2, 10, 10);
-
+		UI.gridLayout(settingsBody, 6, 50, 10);
+		chooseImpactCategoriesMenu(settingsBody);
+		initContributionsList();
 		colorByCriteriaMenu(settingsBody);
 		selectCategoryMenu(settingsBody);
 		colorPickerMenu(settingsBody);
@@ -185,12 +184,16 @@ public class ProductComparison {
 	 * : either by product (default), product category or location
 	 * 
 	 * @param row1   The menu bar
+	 * @param tk2
 	 * @param row2   The second part of the display
 	 * @param canvas The canvas
 	 */
 	private void colorByCriteriaMenu(Composite row1) {
-		UI.formLabel(row1, "Color cells by");
-		var combo = new ColorationCombo(row1, ColorCellCriteria.values());
+		var comp = tk.createComposite(row1);
+		UI.gridLayout(comp, 1, 10, 10);
+		comp.setLayoutData(new GridData(GridData.VERTICAL_ALIGN_BEGINNING));
+		UI.formLabel(comp, "Color cells by");
+		var combo = new ColorationCombo(comp, ColorCellCriteria.values());
 		combo.setNullable(false);
 		combo.select(ColorCellCriteria.PRODUCT);
 		combo.addSelectionChangedListener(v -> {
@@ -198,7 +201,6 @@ public class ProductComparison {
 				colorCellCriteria = v;
 				Contributions.updateComparisonCriteria(v);
 				contributionsList.stream().forEach(c -> c.updateCellsColor());
-//				triggerComboSelection(selectCategory, true);
 			}
 		});
 	}
@@ -216,8 +218,11 @@ public class ProductComparison {
 				.collect(Collectors.toSet());
 		var categoriesDescriptors = new CategoryDao(db).getDescriptors(categoriesRefId);
 		categoriesDescriptors.sort((c1, c2) -> c1.name.compareTo(c2.name));
-		UI.formLabel(row1, "Highlight Category");
-		var combo = new HighlightCategoryCombo(row1, categoriesDescriptors.toArray(CategoryDescriptor[]::new));
+		var comp = tk.createComposite(row1);
+		UI.gridLayout(comp, 1, 10, 10);
+		comp.setLayoutData(new GridData(GridData.VERTICAL_ALIGN_BEGINNING));
+		UI.formLabel(comp, "Highlight Category");
+		var combo = new HighlightCategoryCombo(comp, categoriesDescriptors.toArray(CategoryDescriptor[]::new));
 		combo.setNullable(true);
 		combo.select(null);
 		combo.addSelectionChangedListener(v -> {
@@ -261,17 +266,20 @@ public class ProductComparison {
 	 * @param composite The parent component
 	 */
 	private void colorPickerMenu(Composite composite) {
+		var comp = tk.createComposite(composite);
+		comp.setLayoutData(new GridData(GridData.VERTICAL_ALIGN_BEGINNING));
+		UI.gridLayout(comp, 1, 10, 10);
 		// Default color (pink)
 		chosenCategoryColor = new Color(shell.getDisplay(), new RGB(255, 0, 255));
-		UI.formLabel(composite, "Highlight color");
-		Button button = tk.createButton(composite, "    ", SWT.NONE);
+		UI.formLabel(comp, "Highlight color");
+		Button button = tk.createButton(comp, "    ", SWT.NONE);
 		button.setSize(50, 50);
 		button.setBackground(chosenCategoryColor);
 
 		Controls.onSelect(button, e -> {
 			System.out.println("selected");
 			// Create the color-change dialog
-			ColorDialog dlg = new ColorDialog(composite.getShell());
+			ColorDialog dlg = new ColorDialog(comp.getShell());
 			// Set the selected color in the dialog from
 			// user's selected color
 			dlg.setRGB(button.getBackground().getRGB());
@@ -298,11 +306,20 @@ public class ProductComparison {
 	 * @param canvas The canvas
 	 */
 	private void selectCutoffSizeMenu(Composite row1) {
-		UI.formLabel(row1, tk, "Don't show < ");
 		var comp = UI.formComposite(row1, tk);
-		UI.gridLayout(comp, 2, 10, 0);
-		var selectCutoff = new Spinner(comp, SWT.BORDER);
-		UI.formLabel(comp, tk, "%");
+		comp.setLayoutData(new GridData(GridData.VERTICAL_ALIGN_BEGINNING));
+		UI.gridLayout(comp, 1, 10, 10);
+
+		UI.formLabel(comp, tk, "Don't show < ");
+		var comp2 = tk.createComposite(comp);
+		var layout = new GridLayout(2, true);
+		layout.horizontalSpacing = 15;
+		layout.marginRight = 15;
+		layout.marginLeft = 15;
+		comp2.setLayout(layout);
+		UI.gridLayout(comp2, 2, 0, 0);
+		var selectCutoff = new Spinner(comp2, SWT.BORDER);
+		UI.formLabel(comp2, tk, "  %");
 		selectCutoff.setValues(cutOffSize, 0, 100, 0, 1, 10);
 		selectCutoff.addModifyListener((e) -> {
 			var newCutoffSize = selectCutoff.getSelection();
@@ -367,7 +384,12 @@ public class ProductComparison {
 	 */
 	private void runCalculationButton(Composite row1, Composite row2, Canvas canvas) {
 		var vBar = canvas.getVerticalBar();
-		Button button = tk.createButton(row1, "Update Diagram", SWT.NONE);
+
+		var comp = tk.createComposite(row1);
+		UI.gridLayout(comp, 1, 10, 10);
+		comp.setLayoutData(new GridData(GridData.VERTICAL_ALIGN_BEGINNING));
+		tk.createLabel(comp, "");
+		Button button = tk.createButton(comp, "Update Diagram", SWT.NONE);
 		button.setImage(Icon.RUN.get());
 
 		Controls.onSelect(button, e -> {
@@ -730,21 +752,8 @@ public class ProductComparison {
 			return;
 		}
 		double amountSum = cells.stream().skip(currentCellIndex).mapToDouble(c -> c.getNormalizedAmount()).sum();
-		double minimumGapBetweenCells = ((double) remainingRectangleWidth / (cells.size() - currentCellIndex));
-		int chunk = -1, chunkSize = 0, newChunk = 0;
-		boolean gapBigEnough = true;
-//		if (minimumGapBetweenCells < 1.0) {
-//			// If the gap is to small, we put a certain amount of results in the
-//			// same
-//			// chunk
-//			chunkSize = (int) Math.ceil(1 / minimumGapBetweenCells);
-//			gapBigEnough = false;
-//		}
 		var newRectangleWidth = 0;
 		for (var cellIndex = currentCellIndex; cellIndex < cells.size(); cellIndex++) {
-			if (!gapBigEnough) {
-				newChunk = computeChunk(chunk, chunkSize, (int) cellIndex);
-			}
 			var cell = cells.get((int) cellIndex);
 			int cellWidth = 0;
 
@@ -758,11 +767,7 @@ public class ProductComparison {
 			newRectangleWidth += cellWidth;
 			fillRectangle(gc, start, cellWidth, rectHeight - 1, cell.getRgb(), SWT.COLOR_WHITE);
 			var end = computeEndCell(start, cell, (int) cellWidth, false);
-//			if (gapBigEnough || !gapBigEnough && chunk != newChunk) {
-			// We end the current chunk / cell
 			start = end;
-//				chunk = newChunk;
-//			}
 		}
 		return;
 	}
@@ -1076,7 +1081,10 @@ public class ProductComparison {
 			public void paintControl(PaintEvent e) {
 				var hash = computeConfigurationHash();
 				var cache = cacheMap.get(hash);
-				e.gc.drawImage(cache, scrollPoint.x, scrollPoint.y);
+				if (cache != null)
+					e.gc.drawImage(cache, scrollPoint.x, scrollPoint.y);
+				else
+					System.out.println("Draw image failed");
 			}
 		});
 	}

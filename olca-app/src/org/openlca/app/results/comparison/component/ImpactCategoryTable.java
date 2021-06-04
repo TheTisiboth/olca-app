@@ -4,8 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.swing.text.TableView;
-
 import org.eclipse.jface.viewers.ITableLabelProvider;
 import org.eclipse.jface.viewers.LabelProvider;
 import org.eclipse.jface.viewers.TableViewer;
@@ -36,7 +34,7 @@ public class ImpactCategoryTable {
 		var comp = new Composite(body, SWT.NONE);
 		comp.setLayout(new GridLayout(1, false));
 		var gridData = new GridData(SWT.NONE, SWT.FILL, true, true);
-		gridData.widthHint = 625;
+		gridData.widthHint = 700;
 		comp.setLayoutData(gridData);
 		categories.sort((c1, c2) -> c1.name.compareTo(c2.name));
 		if (target.equals(TargetCalculationEnum.PRODUCT_SYSTEM)) {
@@ -52,12 +50,17 @@ public class ImpactCategoryTable {
 		viewer.setLabelProvider(new CategoryLabelProvider());
 		new ModifySupport<CategoryVariant>(viewer).bind("Display", new DisplayModifier());
 		viewer.setInput(l);
-		Tables.bindColumnWidths(viewer, 0.9,0.22);
-		tableHeaderAction();
-		for (var column : viewer.getTable().getColumns()) {
-			column.pack();
+		// FIXME
+		// Need to set some null data by hand, because if we don't fully scroll, we just
+		// get access to the visible element of the table
+		int i = 0;
+		for (var tableItem : viewer.getTable().getItems()) {
+			var data = (CategoryVariant) tableItem.getData();
+			if (data == null)
+				tableItem.setData(l.get(i++));
 		}
-
+		Tables.bindColumnWidths(viewer, 0.8, 0.19);
+		tableHeaderAction();
 	}
 
 	/**
