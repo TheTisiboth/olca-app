@@ -61,7 +61,7 @@ public class AnalyzeEditor extends ResultEditor<FullResult> {
 			addPage(new GroupPage(this, result, setup));
 			addPage(new LocationPage(this, result, setup));
 			addPage(new ComparisonPage(this));
-			diagram = new SankeyDiagram(result, dqResult, setup);
+			diagram = new SankeyDiagram(this);
 			diagramIndex = addPage(diagram, getEditorInput());
 			setPageText(diagramIndex, M.SankeyDiagram);
 			if (result.hasImpacts()) {

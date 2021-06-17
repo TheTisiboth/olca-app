@@ -44,11 +44,6 @@ public abstract class ResultEditor<T extends ContributionResult> extends FormEdi
 		Editors.open(input, id);
 	}
 
-	public static void open(CalculationSetup setup, ArrayList<ContributionResult> results, DQResult dqResult, List<ProjectVariant> variants) {
-		var input = ResultEditorInput.create(setup, results, variants).with(dqResult);
-		Editors.open(input, ProjectResultEditor.ID);
-	}
-
 	@Override
 	public void doSave(IProgressMonitor monitor) {
 	}
