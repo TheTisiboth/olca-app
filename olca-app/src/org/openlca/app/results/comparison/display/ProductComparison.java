@@ -53,6 +53,8 @@ import org.openlca.core.model.descriptors.ImpactMethodDescriptor;
 import org.openlca.core.model.descriptors.ProcessDescriptor;
 import org.openlca.core.results.ContributionResult;
 
+import com.google.common.collect.Lists;
+
 public class ProductComparison {
 	private Composite shell;
 	private List<Contributions> contributionsList;
@@ -973,7 +975,7 @@ public class ProductComparison {
 				case SWT.MouseEnter:
 				case SWT.MouseMove:
 					for (Contributions contributions : contributionsList) {
-						for (Cell cell : contributions.getList()) {
+						for (Cell cell : Lists.reverse(contributions.getList())) {
 							// event contains the coordinate of the cursor,
 							// but we also have to take in
 							// count if we scrolled
@@ -992,7 +994,7 @@ public class ProductComparison {
 					break;
 				case SWT.MouseDown:
 					for (Contributions contributions : contributionsList) {
-						for (Cell cell : contributions.getList()) {
+						for (Cell cell : Lists.reverse(contributions.getList())) {
 							// event contains the coordinate of the cursor,
 							// but we also have to take in
 							// count if we scrolled
@@ -1010,9 +1012,11 @@ public class ProductComparison {
 									selectedProduct = (ProcessDescriptor) cell.getResult().getContribution().item;
 								}
 								redraw(parent, canvas);
+								return;
 							}
 						}
 					}
+					break;
 				}
 			}
 		};

@@ -50,7 +50,7 @@ public class ReportEditor extends SimpleFormEditor {
 		this.report = new Report();
 		setPartName("Report of: " + Labels.name(project));
 	}
-
+	
 	@Override
 	protected FormPage getPage() {
 		return new ReportEditorPage(this);

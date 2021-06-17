@@ -28,9 +28,6 @@ public class ProjectResultEditor extends SimpleFormEditor {
 
 	private ProjectResultData data;
 
-	public ProjectResultData getData() {
-		return data;
-	}
 	public static void open(ProjectResultData data) {
 		if (data == null)
 			return;
@@ -53,18 +50,22 @@ public class ProjectResultEditor extends SimpleFormEditor {
 	}
 	
 	@Override
-	protected final void addPages() {
+	protected void addPages() {
 		try {
 			addPage(getPage());
 			addPage(new ComparisonPage(this));
 		} catch (Exception e) {
-			ErrorReporter.on("Error adding page to " + getClass().getSimpleName(), e);
+			ErrorReporter.on("failed to add pages", e);
 		}
 	}
 
 	@Override
 	protected FormPage getPage() {
 		return new Page(this);
+	}
+	
+	public ProjectResultData getData() {
+		return data;
 	}
 
 	private static class Page extends FormPage {
