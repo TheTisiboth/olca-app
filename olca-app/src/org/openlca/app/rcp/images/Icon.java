@@ -98,6 +98,8 @@ public enum Icon {
 
 	QUICK_RESULT("quick_calculation.png"),
 
+	RADIO_FALSE("radio_false.png"),
+	RADIO_TRUE("radio_true.png"),
 	REDO("redo.png"),
 	REDO_DISABLED("redo_disabled.png"),
 	REGIONALIZED_RESULT("model/impact_method.png"),

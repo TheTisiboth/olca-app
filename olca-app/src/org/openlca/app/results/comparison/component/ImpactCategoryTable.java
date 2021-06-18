@@ -28,6 +28,8 @@ public class ImpactCategoryTable {
 	List<ImpactDescriptor> categories;
 	List<ImpactDescriptor> categoriesFullList;
 	TargetCalculationEnum target;
+	private Image icon_false;
+	private Image icon_true;
 
 	public ImpactCategoryTable(Composite body, List<ImpactDescriptor> categories, TargetCalculationEnum t) {
 		target = t;
@@ -39,16 +41,21 @@ public class ImpactCategoryTable {
 		categories.sort((c1, c2) -> c1.name.compareTo(c2.name));
 		if (target.equals(TargetCalculationEnum.PRODUCT_SYSTEM)) {
 			this.categories = categories;
+			icon_false = Icon.CHECK_FALSE.get();
+			icon_true = Icon.CHECK_TRUE.get();
 		} else {
 			this.categories = new ArrayList<ImpactDescriptor>();
 			this.categories.add(categories.get(0));
+			icon_false = Icon.RADIO_FALSE.get();
+			icon_true = Icon.RADIO_TRUE.get();
 		}
 		categoriesFullList = categories;
 		List<CategoryVariant> l = categories.stream().map(c -> new CategoryVariant(c)).collect(Collectors.toList());
 		l.get(0).isDisabled = false;
 		viewer = Tables.createViewer(comp, "Impact Category", "Display"); // Create columns
 		viewer.setLabelProvider(new CategoryLabelProvider());
-		new ModifySupport<CategoryVariant>(viewer).bind("Display", new DisplayModifier());
+		new ModifySupport<CategoryVariant>(viewer).bind("Display", new DisplayModifier()).bind("Impact Category",
+				new DisplayModifier());
 		viewer.setInput(l);
 		// FIXME
 		// Need to set some null data by hand, because if we don't fully scroll, we just
@@ -69,7 +76,7 @@ public class ImpactCategoryTable {
 	private void tableHeaderAction() {
 		var column = viewer.getTable().getColumns()[1];
 		if (target.equals(TargetCalculationEnum.PRODUCT_SYSTEM))
-			column.setImage(Icon.CHECK_TRUE.get());
+			column.setImage(icon_true);
 		var wrapper = new Object() {
 			boolean isCheckAll = true;
 		};
@@ -78,10 +85,10 @@ public class ImpactCategoryTable {
 				if (target.equals(TargetCalculationEnum.PRODUCT_SYSTEM)) {
 					wrapper.isCheckAll = !wrapper.isCheckAll;
 					if (!wrapper.isCheckAll) {
-						column.setImage(Icon.CHECK_FALSE.get());
+						column.setImage(icon_false);
 						categories = new ArrayList<ImpactDescriptor>();
 					} else {
-						column.setImage(Icon.CHECK_TRUE.get());
+						column.setImage(icon_true);
 						categories = categoriesFullList;
 					}
 					// Update every row of the table
@@ -114,7 +121,7 @@ public class ImpactCategoryTable {
 			var category = (CategoryVariant) obj;
 			return switch (col) {
 			case 0 -> Images.get(ModelType.IMPACT_CATEGORY);
-			case 1 -> category.isDisabled ? Icon.CHECK_FALSE.get() : Icon.CHECK_TRUE.get();
+			case 1 -> category.isDisabled ? icon_false : icon_true;
 			default -> null;
 			};
 		}
@@ -140,6 +147,9 @@ public class ImpactCategoryTable {
 		protected void setChecked(CategoryVariant v, boolean b) {
 			if (v.isDisabled != b)
 				return;
+			if (target.equals(TargetCalculationEnum.PROJECT) && !v.isDisabled) {
+				return;
+			}
 			if (b) {
 				if (target.equals(TargetCalculationEnum.PROJECT)) {
 					for (var tableItem : viewer.getTable().getItems()) {
