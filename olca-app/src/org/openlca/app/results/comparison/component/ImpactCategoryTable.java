@@ -17,6 +17,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.openlca.app.rcp.images.Icon;
 import org.openlca.app.rcp.images.Images;
 import org.openlca.app.results.comparison.display.TargetCalculationEnum;
+import org.openlca.app.viewers.Viewers;
 import org.openlca.app.viewers.tables.Tables;
 import org.openlca.app.viewers.tables.modify.CheckBoxCellModifier;
 import org.openlca.app.viewers.tables.modify.ModifySupport;
@@ -53,10 +54,13 @@ public class ImpactCategoryTable {
 		List<CategoryVariant> l = categories.stream().map(c -> new CategoryVariant(c)).collect(Collectors.toList());
 		l.get(0).isDisabled = false;
 		viewer = Tables.createViewer(comp, "Impact Category", "Display"); // Create columns
-		viewer.setLabelProvider(new CategoryLabelProvider());
+		var labelProvider = new CategoryLabelProvider();
+		viewer.setLabelProvider(labelProvider);
 		new ModifySupport<CategoryVariant>(viewer).bind("Display", new DisplayModifier()).bind("Impact Category",
 				new DisplayModifier());
 		viewer.setInput(l);
+		
+		Viewers.sortByLabels(viewer, labelProvider, 0);
 		// FIXME
 		// Need to set some null data by hand, because if we don't fully scroll, we just
 		// get access to the visible element of the table
@@ -115,7 +119,7 @@ public class ImpactCategoryTable {
 	}
 
 	private class CategoryLabelProvider extends LabelProvider implements ITableLabelProvider {
-
+		
 		@Override
 		public Image getColumnImage(Object obj, int col) {
 			var category = (CategoryVariant) obj;

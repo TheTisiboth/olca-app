@@ -1,12 +1,16 @@
 package org.openlca.app.results.comparison.display;
 
 public enum ColorCellCriteria {
-	PRODUCT("Product"), CATEGORY("Category"), LOCATION("Location");
+	PROCESS("Process"), CATEGORY("Category"), LOCATION("Location");
 
 	private String criteria;
 
 	ColorCellCriteria(String c) {
 		criteria = c;
+	}
+	
+	public String getCriteria() {
+		return criteria;
 	}
 
 	public static ColorCellCriteria getCriteria(String c) {

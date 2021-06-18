@@ -195,13 +195,12 @@ public class ProductComparison {
 		UI.gridLayout(comp, 1, 10, 10);
 		comp.setLayoutData(new GridData(GridData.VERTICAL_ALIGN_BEGINNING));
 		UI.formLabel(comp, "Color cells by");
-		var combo = new ColorationCombo(comp, ColorCellCriteria.values());
+		var combo = new ColorationCombo(comp);
 		combo.setNullable(false);
-		combo.select(ColorCellCriteria.PRODUCT);
 		combo.addSelectionChangedListener(v -> {
-			if (!colorCellCriteria.equals(v)) {
-				colorCellCriteria = v;
-				Contributions.updateComparisonCriteria(v);
+			if (!colorCellCriteria.name().equals(v.name)) {
+				colorCellCriteria = ColorCellCriteria.getCriteria(v.name);
+				Contributions.updateComparisonCriteria(colorCellCriteria);
 				contributionsList.stream().forEach(c -> c.updateCellsColor());
 			}
 		});
