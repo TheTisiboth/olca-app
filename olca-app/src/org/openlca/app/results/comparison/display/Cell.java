@@ -4,6 +4,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
+import org.openlca.core.database.CategoryDao;
 import org.openlca.core.database.IDatabase;
 import org.openlca.core.database.LocationDao;
 import org.openlca.core.model.descriptors.CategorizedDescriptor;
@@ -28,6 +29,7 @@ public class Cell {
 	private String tooltip;
 	private boolean isSelected;
 	static IDatabase db;
+	private int linkNumber;
 
 	public void setData(Point startingLinksPoint, Point endingLinkPoint, Rectangle rectCell, boolean isCutoff) {
 		this.startingLinksPoint = startingLinksPoint;
@@ -62,6 +64,15 @@ public class Cell {
 		rgb = computeRGB();
 		isDisplayed = true;
 		isSelected = false;
+		linkNumber = 0;
+	}
+
+	public void addLinkNumber() {
+		linkNumber++;
+	}
+
+	public int getLinkNumber() {
+		return linkNumber;
 	}
 
 	public boolean isSelected() {
@@ -77,17 +88,19 @@ public class Cell {
 		var locationId = ((ProcessDescriptor) contribution.item).location;
 		var locationName = new LocationDao(db).getDescriptor(locationId).code;
 		var processName = contribution.item.name + " - " + locationName;
+		var processCategory = new CategoryDao(db).getDescriptor(contribution.item.category).name;
 
-		tooltip = "Process name : " + processName + "\n" + "Amount : " + contribution.amount + " "
-				+ StringUtils.defaultIfEmpty(contribution.unit, "");
+		tooltip = "Process name: " + processName + "\n" + "Amount: " + contribution.amount + " "
+				+ StringUtils.defaultIfEmpty(contribution.unit, "") + "\n" + "Process category: " + processCategory;
 	}
-	
+
 	public CategorizedDescriptor getProcess() {
 		return result.getContribution().item;
 	}
 
 	/**
 	 * Lazy load of tooltip
+	 * 
 	 * @return The Process tooltip
 	 */
 	public String getTooltip() {

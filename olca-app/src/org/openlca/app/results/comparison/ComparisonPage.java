@@ -43,7 +43,7 @@ public class ComparisonPage extends FormPage {
 			Composite body = UI.formBody(form, tk);
 			InfoSection.create(body, tk, e.setup);
 			new ProductComparison(body, editor, target, tk).display();
-			form.reflow(true);
+//			form.reflow(true);
 		} else {
 			var e = (ProjectResultEditor) editor;
 			ScrolledForm form = UI.formHeader(mform, "Project : " + e.getTitle());
@@ -51,7 +51,7 @@ public class ComparisonPage extends FormPage {
 			Composite body = UI.formBody(form, tk);
 			InfoSection.create(body, tk, e.getData().project());
 			new ProductComparison(body, editor, target, tk).display();
-			form.reflow(true);
+//			form.reflow(true);
 		}
 	}
 }

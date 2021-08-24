@@ -9,7 +9,7 @@ public class ImpactCategoryCombo extends AbstractComboViewer<ImpactDescriptor> {
 
 	public ImpactCategoryCombo(Composite parent, ImpactDescriptor... values) {
 		super(parent);
-		setNullText("No Impact Category was selected");
+		setNullText("No impact category was selected");
 		setInput(values);
 	}
 

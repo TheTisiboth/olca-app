@@ -53,10 +53,10 @@ public class ImpactCategoryTable {
 		categoriesFullList = categories;
 		List<CategoryVariant> l = categories.stream().map(c -> new CategoryVariant(c)).collect(Collectors.toList());
 		l.get(0).isDisabled = false;
-		viewer = Tables.createViewer(comp, "Impact Category", "Display"); // Create columns
+		viewer = Tables.createViewer(comp, "Impact category", "Display"); // Create columns
 		var labelProvider = new CategoryLabelProvider();
 		viewer.setLabelProvider(labelProvider);
-		new ModifySupport<CategoryVariant>(viewer).bind("Display", new DisplayModifier()).bind("Impact Category",
+		new ModifySupport<CategoryVariant>(viewer).bind("Display", new DisplayModifier()).bind("Impact category",
 				new DisplayModifier());
 		viewer.setInput(l);
 		

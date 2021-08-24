@@ -58,7 +58,7 @@ import com.google.common.collect.Lists;
 public class ProductComparison {
 	private Composite shell;
 	private List<Contributions> contributionsList;
-	private Point screenSize;
+	private Rectangle screenSize;
 	private Config config;
 	private Point scrollPoint;
 	private final Point margin;
@@ -83,6 +83,10 @@ public class ProductComparison {
 	private List<ImpactDescriptor> impactCategories;
 	ImpactCategoryTable impactCategoryTable;
 	private Map<ImpactDescriptor, List<Contributions>> impactCategoryResultsMap;
+	private HighlightCategoryCombo highlighCategoryCombo;
+	private Map<Integer, List<Contributions>> contributionsMap;
+	private Composite row2;
+	private Image cachedImage;
 
 	public ProductComparison(Composite shell, FormEditor editor, TargetCalculationEnum target, FormToolkit tk) {
 		this.tk = tk;
@@ -109,10 +113,11 @@ public class ProductComparison {
 		rectHeight = 30;
 		gapBetweenRect = 150;
 		theoreticalScreenHeight = margin.y * 2 + gapBetweenRect;
-		cutOffSize = 75;
+		cutOffSize = 25;
 		scrollPoint = new Point(0, 0);
 		isCalculationStarted = false;
 		impactCategoryResultsMap = new HashMap<ImpactDescriptor, List<Contributions>>();
+		contributionsMap = new HashMap<Integer, List<Contributions>>();
 	}
 
 	/**
@@ -126,7 +131,6 @@ public class ProductComparison {
 
 		Section settingsSection = UI.section(shell, tk, "Settings");
 		Composite comp = UI.sectionClient(settingsSection, tk);
-		UI.gridLayout(comp, 1);
 
 		Section canvasSection = UI.section(shell, tk, "Diagram");
 		canvasSection.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
@@ -134,7 +138,7 @@ public class ProductComparison {
 		var comp2 = UI.sectionClient(canvasSection, tk);
 		comp2.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 
-		var row2 = tk.createComposite(comp2);
+		row2 = tk.createComposite(comp2);
 		row2.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 		row2.setLayout(new GridLayout(1, false));
 
@@ -175,6 +179,10 @@ public class ProductComparison {
 		impactCategories = new ImpactMethodDao(db).getCategoryDescriptors(impactMethod.id);
 	}
 
+	public interface func {
+		void updateHighlightCategory();
+	}
+
 	/**
 	 * Dropdown menu, allow us to chose different Impact Categories
 	 * 
@@ -198,7 +206,7 @@ public class ProductComparison {
 		var comp = tk.createComposite(row1);
 		UI.gridLayout(comp, 1, 10, 10);
 		comp.setLayoutData(new GridData(GridData.VERTICAL_ALIGN_BEGINNING));
-		UI.formLabel(comp, "Color cells by");
+		UI.formLabel(comp, "Color by");
 		var combo = new ColorationCombo(comp);
 		combo.setNullable(false);
 		combo.addSelectionChangedListener(v -> {
@@ -218,23 +226,28 @@ public class ProductComparison {
 	 * @param canvas The canvas
 	 */
 	private void selectCategoryMenu(Composite row1) {
-		var categoriesRefId = contributionsList.stream()
-				.flatMap(c -> c.getList().stream().filter(cell -> cell.isDisplayed() && cell.getProcess() != null)
-						.map(cell -> cell.getProcess().category))
-				.distinct().collect(Collectors.toSet());
-		var categoriesDescriptors = new CategoryDao(db).getDescriptors(categoriesRefId);
-		categoriesDescriptors.sort((c1, c2) -> c1.name.compareTo(c2.name));
 		var comp = tk.createComposite(row1);
 		UI.gridLayout(comp, 1, 10, 10);
 		comp.setLayoutData(new GridData(GridData.VERTICAL_ALIGN_BEGINNING));
-		UI.formLabel(comp, "Highlight Category");
-		var combo = new HighlightCategoryCombo(comp, categoriesDescriptors.toArray(CategoryDescriptor[]::new));
-		combo.setNullable(true);
-		combo.select(null);
-		combo.addSelectionChangedListener(v -> {
-			if (v == null)
+		UI.formLabel(comp, "Highlight process category");
+		CategoryDescriptor[] tab = {};
+		highlighCategoryCombo = new HighlightCategoryCombo(comp, db, tab);
+		highlighCategoryCombo.setNullable(true);
+		highlighCategoryCombo.select(null);
+		highlighCategoryCombo.selectionChanged(null);
+		highlighCategoryCombo.addSelectionChangedListener(v -> {
+			if (v == null) {
 				chosenProcessCategory = 0;
-			else {
+				var categoriesRefId = contributionsList.stream()
+						.flatMap(c -> c.getList().stream()
+								.filter(cell -> cell.isLinkDrawable() && cell.getProcess() != null)
+								.map(cell -> cell.getProcess().category))
+						.distinct().collect(Collectors.toSet());
+				var categoriesDescriptors = new CategoryDao(db).getDescriptors(categoriesRefId);
+				categoriesDescriptors.sort((c1, c2) -> c1.name.compareTo(c2.name));
+				highlighCategoryCombo.setInput(categoriesDescriptors.toArray(CategoryDescriptor[]::new));
+
+			} else {
 				chosenProcessCategory = v.id;
 			}
 		});
@@ -401,6 +414,7 @@ public class ProductComparison {
 			// Cached image, in which we draw the things, and then display it once it is
 			// finished
 			Image cache = cacheMap.get(hash);
+
 			if (cache == null) {
 				initContributionsList();
 				contributionsList.stream().forEach(c -> c.getList().stream().forEach(cell -> {
@@ -411,6 +425,12 @@ public class ProductComparison {
 				isCalculationStarted = true;
 				theoreticalScreenHeight = margin.y * 2 + gapBetweenRect * (contributionsList.size());
 				vBar.setMaximum(theoreticalScreenHeight);
+				contributionsMap.put(hash, contributionsList);
+			} else {
+				var contributionsList_tmp = contributionsMap.get(hash);
+				if (contributionsList_tmp != null) {
+					contributionsList = contributionsList_tmp;
+				}
 			}
 			redraw(row2, canvas);
 		});
@@ -424,22 +444,32 @@ public class ProductComparison {
 	 * @param canvas    The canvas
 	 */
 	private void redraw(Composite composite, Canvas canvas) {
-		screenSize = composite.getSize();
-		if (screenSize.y == 0) {
+		screenSize = composite.getClientArea();
+
+		if (screenSize.height == 0) {
 			return;
 		}
 		var hash = computeConfigurationHash();
 		// Cached image, in which we draw the things, and then display it once it is
 		// finished
-		Image cache = cacheMap.get(hash);
-		if (cache == null) { // Otherwise, we create it, and cache it
-			cache = new Image(Display.getCurrent(), screenSize.x, theoreticalScreenHeight);
-			cachedPaint(composite, cache); // Costly painting, so we cache it
+		cachedImage = cacheMap.get(hash);
+		if (cachedImage == null) { // Otherwise, we create it, and cache it
+			cachedImage = new Image(Display.getCurrent(), screenSize.width, theoreticalScreenHeight);
+			cachedPaint(composite, cachedImage); // Costly painting, so we cache it
 			var newHash = computeConfigurationHash();
-			cacheMap.put(newHash, cache);
+			cacheMap.put(newHash, cachedImage);
+			contributionsMap.put(newHash, contributionsList);
+		} else {
+			var contributionsList_tmp = contributionsMap.get(hash);
+			if (contributionsList_tmp != null) {
+				contributionsList = contributionsList_tmp;
+			}
 		}
+
 		screenWidth = canvas.getClientArea().width;
+		handleScroll(canvas);
 		canvas.redraw();
+		highlighCategoryCombo.updateCategories(contributionsList);
 	}
 
 	/**
@@ -450,7 +480,8 @@ public class ProductComparison {
 	 */
 	private int computeConfigurationHash() {
 		var hash = Objects.hash(targetCalculation, impactCategoryTable.getImpactDescriptors(), chosenCategoryColor,
-				colorCellCriteria, cutOffSize, isCalculationStarted, chosenProcessCategory, selectedProduct);
+				colorCellCriteria, cutOffSize, isCalculationStarted, chosenProcessCategory, selectedProduct,
+				screenSize);
 		return hash;
 	}
 
@@ -466,8 +497,8 @@ public class ProductComparison {
 		var gc = new GC(cache);
 		gc.setAntialias(SWT.ON);
 		gc.setTextAntialias(SWT.ON);
-		screenSize = composite.getSize(); // Responsive behavior
-		double maxRectWidth = screenSize.x * 0.85; // 85% of the screen width
+		screenSize = composite.getClientArea(); // Responsive behavior
+		double maxRectWidth = screenSize.width * 0.85; // 85% of the screen width
 		// Starting point of the first contributions rectangle
 		Point rectEdge = new Point(0 + margin.x, 0 + margin.y);
 		var optional = contributionsList.stream()
@@ -500,11 +531,11 @@ public class ProductComparison {
 		Point textPos = new Point(rectEdge.x - margin.x, rectEdge.y + 6);
 		if (TargetCalculationEnum.PROJECT.equals(targetCalculation)) {
 			gc.drawImage(Images.get(ModelType.PRODUCT_SYSTEM), textPos.x, textPos.y + 1);
-			var wrappedSystemName = WordUtils.wrap(p.getProductSystemName(), 40);
+			var wrappedSystemName = WordUtils.wrap(p.getProductSystemName(), 27);
 			gc.drawText(wrappedSystemName, textPos.x + 20, textPos.y);
 		} else {
 			gc.drawImage(Images.get(ModelType.IMPACT_CATEGORY), textPos.x, textPos.y + 1);
-			var wrappedCategoryName = WordUtils.wrap(p.getImpactCategoryName(), 40);
+			var wrappedCategoryName = WordUtils.wrap(p.getImpactCategoryName(), 27);
 			gc.drawText(wrappedCategoryName, textPos.x + 20, textPos.y);
 		}
 		handleCells(gc, rectEdge, contributionsIndex, p, rectWidth, maxSumAmount);
@@ -524,10 +555,10 @@ public class ProductComparison {
 		Point origin = startPoint;
 		Point endPoint = new Point((int) (startPoint.x + maxRectWidth), startPoint.y);
 		drawLine(gc, startPoint, endPoint, null, null);
-		startPoint = new Point(endPoint.x - 15, endPoint.y + 15);
-		drawLine(gc, startPoint, endPoint, null, null);
-		startPoint = new Point(endPoint.x - 15, endPoint.y - 15);
-		drawLine(gc, startPoint, endPoint, null, null);
+//		startPoint = new Point(endPoint.x - 15, endPoint.y + 15);
+//		drawLine(gc, startPoint, endPoint, null, null);
+//		startPoint = new Point(endPoint.x - 15, endPoint.y - 15);
+//		drawLine(gc, startPoint, endPoint, null, null);
 
 		var offset = 5;
 
@@ -813,9 +844,11 @@ public class ProductComparison {
 					continue;
 				var startPoint = cell.getStartingLinkPoint();
 				var endPoint = linkedCell.getEndingLinkPoint();
+				cell.addLinkNumber();
+				linkedCell.addLinkNumber();
 				if (cell.hasSameProduct(selectedProduct) || cell.getProcess().category == chosenProcessCategory) {
 					cell.setSelected(true);
-					var polygon = getParallelogram(startPoint, endPoint, 7);
+					var polygon = getParallelogram(startPoint, endPoint, 5);
 					gc.setBackground(new Color(gc.getDevice(), cell.getRgb()));
 					gc.fillPolygon(polygon);
 					gc.setBackground(gc.getDevice().getSystemColor(SWT.COLOR_WHITE));
@@ -858,7 +891,8 @@ public class ProductComparison {
 		var r3 = new Point((int) (end.x + N.x * width / 2), (int) (end.y + N.y * width / 2));
 		var r4 = new Point((int) (end.x - N.x * width / 2), (int) (end.y - N.y * width / 2));
 
-		// Do an homothety to move the points towards the main rectangle, so they are not
+		// Do an homothety to move the points towards the main rectangle, so they are
+		// not
 		// floating over or under it
 		r1.x = r1.x + ((start.y - r1.y) * V.x) / (V.y);
 		r1.y = start.y;
@@ -984,48 +1018,56 @@ public class ProductComparison {
 	 * @param canvas    The Canvas component
 	 */
 	private void addResizeEvent(Composite composite, Canvas canvas) {
-
 		canvas.addListener(SWT.Resize, new Listener() {
 			@Override
 			public void handleEvent(Event e) {
+				screenSize = row2.getClientArea();
 				if (cacheMap.isEmpty()) {
 					redraw(composite, canvas);
 					// FIXME
 					// This is done to fix a bug on horizontal scrollbar
 					canvas.notifyListeners(SWT.Resize, e);
 				}
-				var hash = computeConfigurationHash();
-				var cache = cacheMap.get(hash);
-				Rectangle tmp = cache.getBounds();
-
-				Rectangle client = canvas.getClientArea();
-				var vBar = canvas.getVerticalBar();
-				vBar.setThumb(Math.min(theoreticalScreenHeight, client.height));
-				vBar.setPageIncrement(Math.min(theoreticalScreenHeight, client.height));
-				vBar.setIncrement(20);
-				var hBar = canvas.getHorizontalBar();
-				hBar.setMinimum(0);
-				hBar.setThumb(Math.min(screenWidth, client.width));
-				hBar.setPageIncrement(Math.min(screenWidth, client.width));
-				hBar.setIncrement(20);
-				hBar.setMaximum(screenWidth);
-
-				int vPage = canvas.getSize().y - client.height;
-				int hPage = canvas.getSize().x - client.width;
-				int vSelection = vBar.getSelection();
-				int hSelection = hBar.getSelection();
-				if (vSelection >= vPage) {
-					if (vPage <= 0)
-						vSelection = 0;
-					scrollPoint.y = -vSelection;
-				}
-				if (hSelection >= hPage) {
-					if (hPage <= 0)
-						hSelection = 0;
-					scrollPoint.x = -hSelection;
-				}
+				handleScroll(canvas);
 			}
+
 		});
+	}
+
+	private void handleScroll(Canvas canvas) {
+		Rectangle client = canvas.getClientArea();
+		var hash = computeConfigurationHash();
+		var cache = cacheMap.get(hash);
+		int imageHeight = client.height;
+		if (cache != null) {
+			imageHeight = cache.getBounds().height;
+		}
+		var vBar = canvas.getVerticalBar();
+		vBar.setThumb(Math.min(imageHeight, client.height));
+		vBar.setPageIncrement(Math.min(imageHeight, client.height));
+		vBar.setIncrement(20);
+		vBar.setMaximum(imageHeight);
+		var hBar = canvas.getHorizontalBar();
+		hBar.setMinimum(0);
+		hBar.setThumb(Math.min(screenWidth, client.width));
+		hBar.setPageIncrement(Math.min(screenWidth, client.width));
+		hBar.setIncrement(20);
+		hBar.setMaximum(screenWidth);
+
+		int vPage = canvas.getSize().y - client.height;
+		int hPage = canvas.getSize().x - client.width;
+		int vSelection = vBar.getSelection();
+		int hSelection = hBar.getSelection();
+		if (vSelection >= vPage) {
+			if (vPage <= 0)
+				vSelection = 0;
+			scrollPoint.y = -vSelection;
+		}
+		if (hSelection >= hPage) {
+			if (hPage <= 0)
+				hSelection = 0;
+			scrollPoint.x = -hSelection;
+		}
 	}
 
 	/**
@@ -1039,10 +1081,15 @@ public class ProductComparison {
 			public void paintControl(PaintEvent e) {
 				var hash = computeConfigurationHash();
 				var cache = cacheMap.get(hash);
-				if (cache != null)
+
+				if (cache != null) {
 					e.gc.drawImage(cache, scrollPoint.x, scrollPoint.y);
-				else
-					System.out.println("Draw image failed");
+				} else {
+					// When we resize the screen, we don't have created the image yet, so we take
+					// the current one
+					e.gc.drawImage(cachedImage, scrollPoint.x, scrollPoint.y);
+				}
+
 			}
 		});
 	}
