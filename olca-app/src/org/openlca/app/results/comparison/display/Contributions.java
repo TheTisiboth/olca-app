@@ -3,13 +3,14 @@ package org.openlca.app.results.comparison.display;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.eclipse.swt.graphics.Rectangle;
 import org.openlca.core.model.descriptors.CategorizedDescriptor;
 import org.openlca.core.model.descriptors.ProcessDescriptor;
 import org.openlca.core.results.Contribution;
 import org.openlca.util.Pair;
 
 public class Contributions {
-
+	public Rectangle bar;
 	private ArrayList<Cell> list;
 	private String impactCategoryName;
 	private String productSystemName;
@@ -89,6 +90,9 @@ public class Contributions {
 	public double maxProcessId() {
 		return maxProcessId;
 	}
+	public void setBounds(int x, int y , int width, int height) {
+		bar = new Rectangle(x, y, width, height);
+	}
 
 	@Override
 	public String toString() {
@@ -103,22 +107,28 @@ public class Contributions {
 
 	/**
 	 * Ascending sort of the products results
+	 * 
+	 * @return
 	 */
 	public void sort() {
 		list.sort((r1, r2) -> {
 			double a1 = r1.getResult().getContribution().amount;
 			double a2 = r2.getResult().getContribution().amount;
-			if (a1 == 0.0 && a2 != 0.0) {
+			// Move 0 values to the beginning of the list
+			if (a2 != 0.0 && a1 == 0.0) {
 				return -1;
-			} else if (a1 != 0.0 && a2 == 0.0) {
+			} 
+			if (a1 != 0.0 && a2 == 0.0) {
 				return 1;
 			}
+			// a1 && a2 != 0
 			if (a2 > a1) {
 				return -1;
 			}
 			if (a1 > a2) {
 				return 1;
 			}
+			// a1 == a2
 			return 0;
 		});
 	}

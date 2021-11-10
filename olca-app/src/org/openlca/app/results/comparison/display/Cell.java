@@ -8,6 +8,8 @@ import org.openlca.core.database.CategoryDao;
 import org.openlca.core.database.IDatabase;
 import org.openlca.core.database.LocationDao;
 import org.openlca.core.model.descriptors.CategorizedDescriptor;
+import org.openlca.core.model.descriptors.CategoryDescriptor;
+import org.openlca.core.model.descriptors.LocationDescriptor;
 import org.openlca.core.model.descriptors.ProcessDescriptor;
 import org.openlca.core.results.Contribution;
 import org.openlca.util.Pair;
@@ -30,7 +32,20 @@ public class Cell {
 	private boolean isSelected;
 	static IDatabase db;
 	private int linkNumber;
+	private LocationDescriptor location;
+	private String processName;
+	private CategoryDescriptor processCategory;
 
+	public int x, y, width, height;
+	
+	public void setBounds(int x, int y, int width, int height){
+		this.x = x;
+		this.y = y;
+		this.width = width;
+		this.height = height;
+		rectCell = new Rectangle(x, y, width, height);
+	}
+	
 	public void setData(Point startingLinksPoint, Point endingLinkPoint, Rectangle rectCell, boolean isCutoff) {
 		this.startingLinksPoint = startingLinksPoint;
 		this.endingLinkPoint = endingLinkPoint;
@@ -86,12 +101,29 @@ public class Cell {
 	private void setTooltip() {
 		var contribution = result.getContribution();
 		var locationId = ((ProcessDescriptor) contribution.item).location;
-		var locationName = new LocationDao(db).getDescriptor(locationId).code;
-		var processName = contribution.item.name + " - " + locationName;
-		var processCategory = new CategoryDao(db).getDescriptor(contribution.item.category).name;
+		location = new LocationDao(db).getDescriptor(locationId);
+		processName = contribution.item.name + " - " + location.code;
+		processCategory = new CategoryDao(db).getDescriptor(contribution.item.category);
 
 		tooltip = "Process name: " + processName + "\n" + "Amount: " + contribution.amount + " "
-				+ StringUtils.defaultIfEmpty(contribution.unit, "") + "\n" + "Process category: " + processCategory;
+				+ StringUtils.defaultIfEmpty(contribution.unit, "") + "\n" + "Process category: "
+				+ processCategory.name;
+	}
+
+	public double getContributionAmount() {
+		return result.getContribution().amount;
+	}
+
+	public LocationDescriptor getLocation() {
+		return location;
+	}
+
+	public String getProcessName() {
+		return processName;
+	}
+
+	public CategoryDescriptor getProcessCategory() {
+		return processCategory;
 	}
 
 	public CategorizedDescriptor getProcess() {
@@ -205,8 +237,10 @@ public class Cell {
 		return rectCell.contains(p);
 	}
 
-	public boolean hasSameProduct(ProcessDescriptor o) {
-		return result.getContribution().item.equals(o);
+	public boolean hasSameProduct(Cell c) {
+		if (c == null)
+			return false;
+		return result.getContribution().item.equals(c.getResult().getContribution().item);
 	}
 
 	public String toString() {
