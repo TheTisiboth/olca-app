@@ -1059,10 +1059,8 @@ public class ProductComparison {
 		for (Control control : child) {
 			control.dispose();
 		}
-		UI.gridLayout(captionBody, 2);
 		if (selectedCell != null) {
-			((GridData) captionSection.getLayoutData()).exclude = false;
-			captionSection.setVisible(true);
+			UI.gridLayout(captionBody, 2,6,10);
 			InfoSection.link(captionBody, "Process", selectedCell.getProcess());
 			InfoSection.link(captionBody, "Process category", selectedCell.getProcessCategory());
 			InfoSection.link(captionBody, "Location", selectedCell.getLocation());
@@ -1073,14 +1071,16 @@ public class ProductComparison {
 			if (impactCategoryUnit != null)
 				contribution += " " + impactCategoryUnit;
 			new Label(captionBody, SWT.NONE).setText(contribution);
-			captionBody.layout(true, true);
-			captionBody.requestLayout();
 		} else {
-			((GridData) captionSection.getLayoutData()).exclude = true;
-			captionSection.setVisible(false);
-			captionSection.requestLayout();
-			shell.requestLayout();
+			UI.gridLayout(captionBody, 2,10,10);
+			InfoSection.link(captionBody, "Process", null);
+			InfoSection.link(captionBody, "Process category", null);
+			InfoSection.link(captionBody, "Location", null);
+			InfoSection.link(captionBody, "Impact category", null);
+			new Label(captionBody, SWT.NONE).setText("Contribution");
+			new Label(captionBody, SWT.NONE).setText("");
 		}
+		captionBody.requestLayout();
 	}
 
 	/**
