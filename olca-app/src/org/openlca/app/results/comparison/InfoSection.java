@@ -29,19 +29,26 @@ public class InfoSection {
 		Label description = new Label(comp, SWT.WRAP);
 		description.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, true, false));
 		String descriptionText;
-		if(setup.impactMethod == null) {
-			description.setText("Please choose an impact method, so we are able to display some information about the selected processes. In order to do so, you have to restart the calculation.");
+		if (setup.impactMethod == null) {
+			description.setText(
+					"Please choose an impact method, so we are able to display some information about the selected processes. In order to do so, you have to restart the calculation.");
 			return;
 		}
 		if (target.equals(TargetCalculationEnum.PRODUCT_SYSTEM))
-			descriptionText = "This diagram display the environmental impact of a product system or a process for each impact categories.";
+			descriptionText = "This diagram display the environmental impact of a product system or a process for each chosen impact categories."
+					+ " One horizontal bar contains all the processes contributions from the product system or process that we chose, for one impact category.";
 		else
-			descriptionText = "This diagram display the environmental impact of some product system for each impact categories.";
-		descriptionText += " One horizontal bar contains all the processes contributions for one impact category. "
-				+ "The same processes contributions are linked together, from 2 bar which are next to each other. "
-				+ "The processes contributions are sorted by ascending order, from left to right.\n"
-				+ "In the setting section, you can select the impact category that you want to analyze, "
-				+ "you can change the way the processes contributions are colored by "
+			descriptionText = "This diagram display the environmental impact for a chosen impact category for each product system from the project."
+					+ " One horizontal bar contains all the processes contributions from a product system from the project, for the chosen impact category.";
+		descriptionText += " The same processes contributions are linked together, from 2 bar which are next to each other. "
+				+ "The processes contributions are sorted by ascending order, from left to right.\n";
+		if (target.equals(TargetCalculationEnum.PRODUCT_SYSTEM))
+			descriptionText += "In the setting section, you can select the impact categories that you want to analyze."
+					+ " Initialy, they are all selected, with the alphabetical order. If you want to select/unselect impact categories,"
+					+ " the order in which you select them will change the order in which the contributions are displayed.";
+		else
+			descriptionText += "In the setting section, you can select one impact category at a time. that you want to analyze.";
+		descriptionText += " You can change the way the processes contributions are colored by "
 				+ "(either by processes, by location or by process category). "
 				+ "It means that if you select Location, then 2 processes which have the same location will have the same color. "
 				+ "You can also choose to highlight a specific process category, "
@@ -49,7 +56,6 @@ public class InfoSection {
 				+ "You can finally set up a cut-off limit, which indicate how much processes you want to be hidden. "
 				+ "The higher the number is, the less processes are displayed.";
 		description.setText(descriptionText);
-
 	}
 
 	static void create(Composite body, FormToolkit tk, Project project) {

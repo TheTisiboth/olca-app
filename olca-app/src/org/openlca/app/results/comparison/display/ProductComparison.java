@@ -89,6 +89,7 @@ public class ProductComparison {
 	private Composite row2;
 	private Image cachedImage;
 	private Composite captionBody;
+	private Section captionSection;
 
 	public ProductComparison(Composite shell, FormEditor editor, TargetCalculationEnum target, FormToolkit tk) {
 		this.tk = tk;
@@ -134,7 +135,7 @@ public class ProductComparison {
 		Section settingsSection = UI.section(shell, tk, "Settings");
 		Composite comp = UI.sectionClient(settingsSection, tk);
 
-		Section captionSection = UI.section(shell, tk, "Selected process");
+		captionSection = UI.section(shell, tk, "Selected process contribution");
 		captionBody = UI.sectionClient(captionSection, tk);
 		updateCaption();
 
@@ -192,6 +193,8 @@ public class ProductComparison {
 	 * Initialize an impact Category Map, from the Impact Method
 	 */
 	private void initImpactCategories() {
+		if (impactMethod == null)
+			return;
 		impactCategories = new ImpactMethodDao(db).getCategoryDescriptors(impactMethod.id);
 	}
 
@@ -202,6 +205,8 @@ public class ProductComparison {
 	 * @param row2 The canvas
 	 */
 	private void chooseImpactCategoriesMenu(Composite row1) {
+		if (impactCategories == null)
+			return;
 		impactCategoryTable = new ImpactCategoryTable(row1, impactCategories, targetCalculation);
 	}
 
@@ -353,10 +358,12 @@ public class ProductComparison {
 		var vBar = canvas.getVerticalBar();
 		contributionsList = new ArrayList<>();
 		if (TargetCalculationEnum.PRODUCT_SYSTEM.equals(targetCalculation)) {
+			if (impactMethod == null)
+				return;
 			var impactCategories = impactCategoryTable.getImpactDescriptors();
 			impactCategories.stream().forEach(category -> {
 				var contributionList = contributionResult.getProcessContributions(category);
-				var c = new Contributions(contributionList, category.name, null);
+				var c = new Contributions(contributionList, null, category);
 				contributionsList.add(c);
 			});
 		} else {
@@ -366,7 +373,7 @@ public class ProductComparison {
 				projectResultData.project().variants.stream().forEach(v -> {
 					var contributionResult = projectResultData.result().getResult(v);
 					var contributionList = contributionResult.getProcessContributions(impactCategory);
-					var c = new Contributions(contributionList, impactCategory.name, v.productSystem.name);
+					var c = new Contributions(contributionList, v.productSystem.name, impactCategory);
 					contributionsList.add(c);
 				});
 				impactCategoryResultsMap.put(impactCategory, contributionsList);
@@ -474,9 +481,11 @@ public class ProductComparison {
 	 * @return A hash
 	 */
 	private int computeConfigurationHash() {
-		var hash = Objects.hash(targetCalculation, impactCategoryTable.getImpactDescriptors(), chosenCategoryColor,
-				colorCellCriteria, cutOffSize, isCalculationStarted, chosenProcessCategory, selectedCell, screenSize);
-		return hash;
+		if (impactCategoryTable != null)
+			return Objects.hash(targetCalculation, impactCategoryTable.getImpactDescriptors(), chosenCategoryColor,
+					colorCellCriteria, cutOffSize, isCalculationStarted, chosenProcessCategory, selectedCell,
+					screenSize);
+		return -1;
 	}
 
 	/**
@@ -859,7 +868,7 @@ public class ProductComparison {
 				if (!optional.isPresent())
 					continue;
 				var linkedCell = optional.get();
-				if (!linkedCell.isDisplayed())
+				if (!linkedCell.isLinkDrawable())
 					continue;
 				var startPoint = cell.getStartingLinkPoint();
 				var endPoint = linkedCell.getEndingLinkPoint();
@@ -923,13 +932,13 @@ public class ProductComparison {
 		r4.y = end.y;
 
 		int array[] = { truncatePointCoordinate(r1.x, contributionsBar.x + contributionsBar.width, true),
-				truncatePointCoordinate(r1.y, contributionsBar.y + contributionsBar.height+1, true),
+				truncatePointCoordinate(r1.y, contributionsBar.y + contributionsBar.height + 1, true),
 				truncatePointCoordinate(r2.x, contributionsBar.x + contributionsBar.width, true),
-				truncatePointCoordinate(r2.y, contributionsBar.y + contributionsBar.height+1, true),
+				truncatePointCoordinate(r2.y, contributionsBar.y + contributionsBar.height + 1, true),
 				truncatePointCoordinate(r4.x, contributionsBar.x, false),
-				truncatePointCoordinate(r4.y, contributionsBar.y + gapBetweenRect-2, false),
+				truncatePointCoordinate(r4.y, contributionsBar.y + gapBetweenRect - 2, false),
 				truncatePointCoordinate(r3.x, contributionsBar.x, false),
-				truncatePointCoordinate(r3.y, contributionsBar.y + gapBetweenRect-2, false) };
+				truncatePointCoordinate(r3.y, contributionsBar.y + gapBetweenRect - 2, false) };
 		return array;
 
 	}
@@ -1052,19 +1061,26 @@ public class ProductComparison {
 		}
 		UI.gridLayout(captionBody, 2);
 		if (selectedCell != null) {
+			((GridData) captionSection.getLayoutData()).exclude = false;
+			captionSection.setVisible(true);
 			InfoSection.link(captionBody, "Process", selectedCell.getProcess());
 			InfoSection.link(captionBody, "Process category", selectedCell.getProcessCategory());
 			InfoSection.link(captionBody, "Location", selectedCell.getLocation());
+			InfoSection.link(captionBody, "Impact category", selectedCell.getImpactCategory());
 			new Label(captionBody, SWT.NONE).setText("Contribution");
-			new Label(captionBody, SWT.NONE).setText("" + selectedCell.getContributionAmount());
+			var impactCategoryUnit = selectedCell.getContributions().getImpactCategory().referenceUnit;
+			var contribution = "" + selectedCell.getContributionAmount();
+			if (impactCategoryUnit != null)
+				contribution += " " + impactCategoryUnit;
+			new Label(captionBody, SWT.NONE).setText(contribution);
+			captionBody.layout(true, true);
+			captionBody.requestLayout();
 		} else {
-			InfoSection.link(captionBody, "Process", null);
-			InfoSection.link(captionBody, "Process category", null);
-			InfoSection.link(captionBody, "Location", null);
-			new Label(captionBody, SWT.NONE).setText("Contribution");
-			new Label(captionBody, SWT.NONE).setText("");
+			((GridData) captionSection.getLayoutData()).exclude = true;
+			captionSection.setVisible(false);
+			captionSection.requestLayout();
+			shell.requestLayout();
 		}
-		captionBody.layout(true, true);
 	}
 
 	/**

@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.eclipse.swt.graphics.Rectangle;
 import org.openlca.core.model.descriptors.CategorizedDescriptor;
+import org.openlca.core.model.descriptors.ImpactDescriptor;
 import org.openlca.core.model.descriptors.ProcessDescriptor;
 import org.openlca.core.results.Contribution;
 import org.openlca.util.Pair;
@@ -12,7 +13,7 @@ import org.openlca.util.Pair;
 public class Contributions {
 	public Rectangle bar;
 	private ArrayList<Cell> list;
-	private String impactCategoryName;
+	private ImpactDescriptor impactCategory;
 	private String productSystemName;
 	static ColorCellCriteria criteria;
 	static Config config;
@@ -22,16 +23,26 @@ public class Contributions {
 	long minLocation = -1, maxLocation = -1;
 	private List<Contribution<CategorizedDescriptor>> contributions;
 
-	public Contributions(List<Contribution<CategorizedDescriptor>> l, String n, String productSystemName) {
+	public Contributions(List<Contribution<CategorizedDescriptor>> l, String productSystemName,
+			ImpactDescriptor category) {
 		contributions = l;
-		impactCategoryName = n;
+		impactCategory = category;
 		this.productSystemName = productSystemName;
 		list = new ArrayList<>();
 		Result.criteria = criteria;
 
 		minAmount = l.stream().mapToDouble(c -> c.amount).min().getAsDouble();
+		var i = 0;
 		for (Contribution<CategorizedDescriptor> contribution : l) {
-			list.add(new Cell(contribution, minAmount, this));
+			Cell prevCell = null;
+			if(i == 13513) {
+				System.out.println();
+			}
+			if(list.size()>0)
+				prevCell = list.get(list.size()-1);
+			list.add(new Cell(contribution, minAmount, this, prevCell));
+			i++;
+
 		}
 	}
 
@@ -72,11 +83,15 @@ public class Contributions {
 	}
 
 	public String getImpactCategoryName() {
-		return impactCategoryName;
+		return impactCategory.name;
 	}
 
 	public String getProductSystemName() {
 		return productSystemName;
+	}
+
+	public ImpactDescriptor getImpactCategory() {
+		return impactCategory;
 	}
 
 	public ArrayList<Cell> getList() {
@@ -90,7 +105,8 @@ public class Contributions {
 	public double maxProcessId() {
 		return maxProcessId;
 	}
-	public void setBounds(int x, int y , int width, int height) {
+
+	public void setBounds(int x, int y, int width, int height) {
 		bar = new Rectangle(x, y, width, height);
 	}
 
@@ -117,7 +133,7 @@ public class Contributions {
 			// Move 0 values to the beginning of the list
 			if (a2 != 0.0 && a1 == 0.0) {
 				return -1;
-			} 
+			}
 			if (a1 != 0.0 && a2 == 0.0) {
 				return 1;
 			}

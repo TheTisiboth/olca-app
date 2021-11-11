@@ -9,10 +9,10 @@ import org.openlca.core.database.IDatabase;
 import org.openlca.core.database.LocationDao;
 import org.openlca.core.model.descriptors.CategorizedDescriptor;
 import org.openlca.core.model.descriptors.CategoryDescriptor;
+import org.openlca.core.model.descriptors.ImpactDescriptor;
 import org.openlca.core.model.descriptors.LocationDescriptor;
 import org.openlca.core.model.descriptors.ProcessDescriptor;
 import org.openlca.core.results.Contribution;
-import org.openlca.util.Pair;
 
 public class Cell {
 
@@ -35,17 +35,31 @@ public class Cell {
 	private LocationDescriptor location;
 	private String processName;
 	private CategoryDescriptor processCategory;
-
+	private Cell prevCell;
 	public int x, y, width, height;
-	
-	public void setBounds(int x, int y, int width, int height){
+
+	public Cell(Contribution<CategorizedDescriptor> contributionsList, double minAmount, Contributions c,
+			Cell prevCell) {
+		this.minAmount = minAmount;
+		contributions = c;
+		result = new Result(contributionsList);
+		isDrawable = true;
+		isCutoff = false;
+		this.prevCell = prevCell;
+		rgb = computeRGB();
+		isDisplayed = true;
+		isSelected = false;
+		linkNumber = 0;
+	}
+
+	public void setBounds(int x, int y, int width, int height) {
 		this.x = x;
 		this.y = y;
 		this.width = width;
 		this.height = height;
 		rectCell = new Rectangle(x, y, width, height);
 	}
-	
+
 	public void setData(Point startingLinksPoint, Point endingLinkPoint, Rectangle rectCell, boolean isCutoff) {
 		this.startingLinksPoint = startingLinksPoint;
 		this.endingLinkPoint = endingLinkPoint;
@@ -70,18 +84,6 @@ public class Cell {
 		this.endingLinkPoint = endingLinkPoint;
 	}
 
-	public Cell(Contribution<CategorizedDescriptor> contributionsList, double minAmount, Contributions c) {
-		this.minAmount = minAmount;
-		contributions = c;
-		result = new Result(contributionsList);
-		isDrawable = true;
-		isCutoff = false;
-		rgb = computeRGB();
-		isDisplayed = true;
-		isSelected = false;
-		linkNumber = 0;
-	}
-
 	public void addLinkNumber() {
 		linkNumber++;
 	}
@@ -104,9 +106,9 @@ public class Cell {
 		location = new LocationDao(db).getDescriptor(locationId);
 		processName = contribution.item.name + " - " + location.code;
 		processCategory = new CategoryDao(db).getDescriptor(contribution.item.category);
-
+		var category = contributions.getImpactCategory();
 		tooltip = "Process name: " + processName + "\n" + "Amount: " + contribution.amount + " "
-				+ StringUtils.defaultIfEmpty(contribution.unit, "") + "\n" + "Process category: "
+				+ StringUtils.defaultIfEmpty(category.referenceUnit, "") + "\n" + "Process category: "
 				+ processCategory.name;
 	}
 
@@ -128,6 +130,10 @@ public class Cell {
 
 	public CategorizedDescriptor getProcess() {
 		return result.getContribution().item;
+	}
+
+	public ImpactDescriptor getImpactCategory() {
+		return contributions.getImpactCategory();
 	}
 
 	/**
@@ -163,48 +169,24 @@ public class Cell {
 	}
 
 	public RGB computeRGB() {
-		double percentage = 0;
-		long value = 0;
-		long min = 0, max = 0;
-		Pair<Long, Long> pair = null;
-		switch (criteria) {
-		case LOCATION:
-			value = ((ProcessDescriptor) result.getContribution().item).location;
-			pair = contributions.getMinMaxLocation();
-			min = pair.first;
-			max = pair.second;
-			break;
-		case CATEGORY:
-			value = result.getContribution().item.category;
-			pair = contributions.getMinMaxCategory();
-			min = pair.first;
-			max = pair.second;
-			break;
-		default:
-			value = result.getContribution().item.id;
-			pair = contributions.getMinMaxProcessId();
-			min = pair.first;
-			max = pair.second;
-			break;
-		}
-		try {
-			percentage = (((value - min) * 100) / (max - min)) / 100.0;
-		} catch (Exception e) {
-			percentage = -1;
-		}
-		if (percentage > 100.0) { // It happens because of uncertainty of division
-			percentage = 100.0;
-		} else if (percentage == -1 || result.getContribution().amount == 0.0) {
+		if ( result.getContribution().amount == 0.0) {
 			isDrawable = false;
 			return new RGB(192, 192, 192); // Grey color for unfocused values (0 or null)
 		}
-		if (config.useGradientColor) {
-			java.awt.Color tmpColor = GradientColorHelper.numberToColorPercentage(percentage);
-			rgb = new RGB(tmpColor.getRed(), tmpColor.getGreen(), tmpColor.getBlue());
-		} else {
-			rgb = ColorPaletteHelper.getColor(percentage);
-		}
+		if (prevCell != null) {
+			var rgbToBeAvoided = prevCell.getRgb();
+			rgb = getRGB(rgbToBeAvoided);
+		} else
+			rgb = getRGB(null);
 		return rgb;
+	}
+
+	private RGB getRGB(RGB rgbToAVoid) {
+		return ColorPaletteHelper.getColor(result.getProcessDescriptor(), rgbToAVoid, criteria);
+	}
+
+	public Contributions getContributions() {
+		return contributions;
 	}
 
 	public void resetDefaultRGB() {
@@ -221,6 +203,10 @@ public class Cell {
 
 	public boolean isLinkDrawable() {
 		return isDrawable && !isCutoff && isDisplayed;
+	}
+
+	public boolean isCutoff() {
+		return isCutoff;
 	}
 
 	public void setIsDisplayed(boolean isDisplayed) {

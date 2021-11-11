@@ -35,6 +35,10 @@ public class Result {
 	public Contribution<CategorizedDescriptor> getContribution() {
 		return contribution;
 	}
+	
+	public  ProcessDescriptor getProcessDescriptor() {
+		return (ProcessDescriptor)contribution.item;
+	}
 
 	@Override
 	public String toString() {
