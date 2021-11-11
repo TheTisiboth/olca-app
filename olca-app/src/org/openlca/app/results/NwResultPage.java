@@ -20,8 +20,8 @@ import org.openlca.app.util.Numbers;
 import org.openlca.app.util.UI;
 import org.openlca.app.viewers.tables.TableClipboard;
 import org.openlca.app.viewers.tables.Tables;
-import org.openlca.core.math.CalculationSetup;
 import org.openlca.core.matrix.NwSetTable;
+import org.openlca.core.model.CalculationSetup;
 import org.openlca.core.results.Contribution;
 import org.openlca.core.results.Contributions;
 import org.openlca.core.results.ImpactResult;
@@ -43,13 +43,13 @@ public class NwResultPage extends FormPage {
 	@Override
 	protected void createFormContent(IManagedForm mform) {
 		var form = UI.formHeader(mform,
-				Labels.name(setup.productSystem),
+				Labels.name(setup.target()),
 				Images.get(result));
 		toolkit = mform.getToolkit();
 		body = UI.formBody(form, toolkit);
-		if (setup.nwSet == null)
+		if (setup.nwSet() == null)
 			return;
-		var nwSet = NwSetTable.of(Database.get(), setup.nwSet);
+		var nwSet = NwSetTable.of(Database.get(), setup.nwSet());
 		if (nwSet.isEmpty())
 			return;
 		var impacts = result.getTotalImpactResults();
@@ -111,8 +111,8 @@ public class NwResultPage extends FormPage {
 			case 1:
 				return Numbers.format(item.amount);
 			case 2:
-				if (setup.nwSet != null)
-					return setup.nwSet.weightedScoreUnit;
+				if (setup.nwSet() != null)
+					return setup.nwSet().weightedScoreUnit;
 			default:
 				return null;
 			}

@@ -14,53 +14,33 @@ import org.openlca.core.math.Simulator;
  */
 class SimulationProgress implements IRunnableWithProgress {
 
-	private Display display;
-	private int numberOfRuns;
-	private Simulator solver;
-	private SimulationPage page;
+	private final Display display;
+	private final int numberOfRuns;
+	private final Simulator solver;
+	private final SimulationPage page;
 
 	public SimulationProgress(Display display, SimulationEditor editor,
 			SimulationPage page) {
 		this.display = display;
 		this.solver = editor.simulator;
-		this.numberOfRuns = editor.setup.numberOfRuns;
+		this.numberOfRuns = editor.setup.numberOfRuns();
 		this.page = page;
 	}
 
 	@Override
 	public void run(IProgressMonitor monitor) throws InvocationTargetException,
 			InterruptedException {
-		// one simulation has already be done at init step, so only
-		// (numberOfRuns - 1) remains
-		monitor.beginTask(M.MonteCarloSimulation + "...", numberOfRuns - 1);
-		for (int i = 0; i < numberOfRuns - 1; i++) {
+		monitor.beginTask(M.MonteCarloSimulation + "...", numberOfRuns);
+		for (int i = 0; i < numberOfRuns; i++) {
 			if (monitor.isCanceled()) {
-				doneAfter(i);
+				display.asyncExec(page::progressDone);
 				break;
 			}
-			doNextRun();
+			solver.nextRun();
+			display.asyncExec(page::updateProgress);
+			Thread.sleep(10);
 		}
 		monitor.done();
-		doneAfter(numberOfRuns - 1);
-	}
-
-	private void doneAfter(final int numberOfRuns) {
-		display.asyncExec(new Runnable() {
-			@Override
-			public void run() {
-				page.progressDone(numberOfRuns);
-			}
-		});
-	}
-
-	private void doNextRun() throws InterruptedException {
-		solver.nextRun();
-		display.asyncExec(new Runnable() {
-			@Override
-			public void run() {
-				page.updateProgress();
-			}
-		});
-		Thread.sleep(10);
+		display.asyncExec(page::progressDone);
 	}
 }

@@ -169,6 +169,10 @@ public class UI {
 		return data;
 	}
 
+	public static GridData fillHorizontal(Control control) {
+		return gridData(control, true, false);
+	}
+
 	public static ScrolledForm formHeader(ModelPage<?> page) {
 		Image image = Images.get(page.getEditor().getModel());
 		ScrolledForm form = formHeader(page.getManagedForm(), page.getFormTitle(), image);
@@ -270,7 +274,7 @@ public class UI {
 
 	public static GridLayout gridLayout(Composite composite, int columns,
 			int spacing, int margin) {
-		final GridLayout layout = new GridLayout(columns, false);
+		var layout = new GridLayout(columns, false);
 		layout.verticalSpacing = spacing;
 		layout.marginWidth = margin;
 		layout.marginHeight = margin;

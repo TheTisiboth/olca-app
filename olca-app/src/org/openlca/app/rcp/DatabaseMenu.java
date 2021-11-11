@@ -1,6 +1,5 @@
 package org.openlca.app.rcp;
 
-import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.action.IMenuListener;
 import org.eclipse.jface.action.IMenuManager;
@@ -8,17 +7,21 @@ import org.eclipse.jface.action.MenuManager;
 import org.openlca.app.M;
 import org.openlca.app.db.Database;
 import org.openlca.app.db.LinkingPropertiesPage;
-import org.openlca.app.navigation.actions.ValidateAction;
+import org.openlca.app.db.tables.FlowPropertyTable;
+import org.openlca.app.db.tables.FlowTable;
 import org.openlca.app.navigation.actions.db.DbCloseAction;
 import org.openlca.app.navigation.actions.db.DbCompressAction;
 import org.openlca.app.navigation.actions.db.DbCopyAction;
 import org.openlca.app.navigation.actions.db.DbCreateAction;
 import org.openlca.app.navigation.actions.db.DbDeleteAction;
 import org.openlca.app.navigation.actions.db.DbExportAction;
-import org.openlca.app.navigation.actions.db.DbRestoreAction;
 import org.openlca.app.navigation.actions.db.DbPropertiesAction;
 import org.openlca.app.navigation.actions.db.DbRenameAction;
+import org.openlca.app.navigation.actions.db.DbRestoreAction;
+import org.openlca.app.navigation.actions.db.DbValidationAction;
+import org.openlca.app.rcp.images.Images;
 import org.openlca.app.util.Actions;
+import org.openlca.core.model.ModelType;
 
 class DatabaseMenu implements IMenuListener {
 
@@ -39,13 +42,11 @@ class DatabaseMenu implements IMenuListener {
 		menu.add(new DbRestoreAction());
 		if (Database.getActiveConfiguration() == null)
 			return;
-		Action checkLinksAction = Actions.create(
-				M.CheckLinkingProperties, null, () -> {
-					LinkingPropertiesPage.show();
-				});
+		var checkLinksAction = Actions.create(
+				M.CheckLinkingProperties, null, LinkingPropertiesPage::show);
 		IAction[] actions = new IAction[] {
 				new DbExportAction(),
-				ValidateAction.forDatabase(),
+				new DbValidationAction(),
 				new DbCopyAction(),
 				new DbRenameAction(),
 				new DbDeleteAction(),
@@ -57,5 +58,15 @@ class DatabaseMenu implements IMenuListener {
 		for (IAction a : actions) {
 			menu.add(a);
 		}
+
+		var contents = new MenuManager();
+		contents.setMenuText("Content");
+
+		contents.add(Actions.create(M.Flows,
+			Images.descriptor(ModelType.FLOW), FlowTable::show));
+		contents.add(Actions.create(M.FlowProperties,
+			Images.descriptor(ModelType.FLOW_PROPERTY), FlowPropertyTable::show));
+
+		menu.add(contents);
 	}
 }

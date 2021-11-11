@@ -18,7 +18,7 @@ import org.eclipse.ui.forms.widgets.ScrolledForm;
 import org.eclipse.ui.forms.widgets.Section;
 import org.openlca.app.App;
 import org.openlca.app.M;
-import org.openlca.app.components.ModelSelectionDialog;
+import org.openlca.app.components.ModelSelector;
 import org.openlca.app.db.Database;
 import org.openlca.app.editors.InfoSection;
 import org.openlca.app.editors.ModelPage;
@@ -82,8 +82,8 @@ class ProjectSetupPage extends ModelPage<Project> {
 		Composite body = UI.formBody(form, toolkit);
 		InfoSection infoSection = new InfoSection(getEditor());
 		infoSection.render(body, toolkit);
-		createButton(infoSection.getContainer());
-		new ImpactSection(editor).render(body, toolkit);
+		createCalculationButton(infoSection.composite());
+		new CalculationSetupSection(editor).render(body, toolkit);
 		createVariantsSection(body);
 		Section section = UI.section(body, toolkit, M.Parameters);
 		parameterTable = new ProjectParameterTable(editor);
@@ -99,7 +99,7 @@ class ProjectSetupPage extends ModelPage<Project> {
 		variantViewer.setInput(variants);
 	}
 
-	private void createButton(Composite parent) {
+	private void createCalculationButton(Composite parent) {
 		UI.filler(parent, toolkit);
 		var comp = toolkit.createComposite(parent);
 		UI.gridLayout(comp, 1, 0, 0).marginHeight = 5;
@@ -107,7 +107,7 @@ class ProjectSetupPage extends ModelPage<Project> {
 		UI.gridData(button, false, false).widthHint = 100;
 		button.setImage(Images.get(ModelType.PROJECT));
 		Controls.onSelect(button,
-			e -> ProjectEditorToolBar.calculate(project));
+			e -> ProjectEditorToolBar.calculate(editor));
 	}
 
 	private void createVariantsSection(Composite body) {
@@ -140,7 +140,7 @@ class ProjectSetupPage extends ModelPage<Project> {
 			}
 		});
 		Action add = Actions.onAdd(() -> {
-			var ds = ModelSelectionDialog.multiSelect(ModelType.PRODUCT_SYSTEM);
+			var ds = ModelSelector.multiSelect(ModelType.PRODUCT_SYSTEM);
 			addVariants(ds);
 		});
 		Action remove = Actions.onRemove(this::removeVariant);
@@ -158,13 +158,13 @@ class ProjectSetupPage extends ModelPage<Project> {
 		});
 		Tables.onDrop(table, descriptors -> {
 			if (descriptors != null) {
-				addVariants(descriptors.toArray(new Descriptor[0]));
+				addVariants(descriptors);
 			}
 		});
 	}
 
-	private void addVariants(Descriptor[] descriptors) {
-		if (descriptors == null || descriptors.length == 0)
+	private void addVariants(List<? extends Descriptor> descriptors) {
+		if (descriptors.isEmpty())
 			return;
 		for (var d : descriptors) {
 			if (d == null)
@@ -197,7 +197,7 @@ class ProjectSetupPage extends ModelPage<Project> {
 			.findAny();
 		if (redefSet.isPresent()) {
 			for (var redef : redefSet.get().parameters) {
-				v.parameterRedefs.add(redef.clone());
+				v.parameterRedefs.add(redef.copy());
 			}
 		}
 		return v;
@@ -287,7 +287,7 @@ class ProjectSetupPage extends ModelPage<Project> {
 		protected Unit[] getItems(ProjectVariant var) {
 			FlowPropertyFactor fac = var.flowPropertyFactor;
 			if (fac == null || fac.flowProperty == null
-				|| fac.flowProperty.unitGroup == null)
+					|| fac.flowProperty.unitGroup == null)
 				return new Unit[0];
 			UnitGroup unitGroup = fac.flowProperty.unitGroup;
 			Unit[] units = unitGroup.units.toArray(new Unit[0]);

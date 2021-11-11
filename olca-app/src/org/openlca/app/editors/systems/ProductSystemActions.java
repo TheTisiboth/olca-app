@@ -14,11 +14,10 @@ import org.openlca.app.rcp.images.Images;
 import org.openlca.app.util.Actions;
 import org.openlca.app.util.ErrorReporter;
 import org.openlca.app.util.FileType;
-import org.openlca.app.util.UI;
 import org.openlca.app.wizards.calculation.CalculationWizard;
-import org.openlca.core.math.CalculationSetup;
 import org.openlca.core.math.MatrixRowSorter;
 import org.openlca.core.matrix.MatrixData;
+import org.openlca.core.model.CalculationSetup;
 import org.openlca.core.model.ProductSystem;
 import org.openlca.io.MatrixImageExport;
 
@@ -64,35 +63,6 @@ public class ProductSystemActions extends EditorActionBarContributor {
 		}
 	}
 
-	@Deprecated
-	private class CsvExportAction extends Action {
-		public CsvExportAction() {
-			setImageDescriptor(Images.descriptor(FileType.CSV));
-			setText(M.ExportAsMatrix);
-		}
-
-		@Override
-		public void run() {
-			var system = getProductSystem();
-			var shell = new CsvExportShell(UI.shell(), system);
-			shell.open();
-		}
-	}
-
-	@Deprecated
-	private class ExcelExportAction extends Action {
-		public ExcelExportAction() {
-			setImageDescriptor(Images.descriptor(FileType.EXCEL));
-			setText(M.ExcelExport);
-		}
-
-		@Override
-		public void run() {
-			ProductSystem system = getProductSystem();
-			new SystemExportDialog(system, Database.get()).open();
-		}
-	}
-
 	private class MatrixImageExportAction extends Action {
 		public MatrixImageExportAction() {
 			setImageDescriptor(Icon.SAVE_AS_IMAGE.descriptor());
@@ -107,7 +77,7 @@ public class ProductSystemActions extends EditorActionBarContributor {
 				return;
 			App.run(M.ImageExport, () -> {
 				try {
-					var setup = new CalculationSetup(system);
+					var setup = CalculationSetup.simple(system);
 					var data = MatrixData.of(Database.get(), setup);
 					var matrix = data.techMatrix.asMutable();
 					matrix = new MatrixRowSorter(matrix, App.getSolver()).run();

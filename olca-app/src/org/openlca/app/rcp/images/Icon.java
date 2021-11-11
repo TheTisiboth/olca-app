@@ -11,6 +11,7 @@ public enum Icon {
 	ANALYSIS_RESULT("analysis.png"),
 
 	BUILD_SUPPLY_CHAIN("graphical/build_supply_chain.gif"),
+	BUILDING("building.png"),
 
 	CALCULATE_COSTS("calculation/calculate_costs.png"),
 	CALCULATION_WIZARD("wizard/calculation.gif"),
@@ -37,6 +38,7 @@ public enum Icon {
 	DISCONNECT("disconnect.png"),
 	DOWN("down.png"),
 
+	EC3_WIZARD("wizard/ec3.png"),
 	EDIT("edit.png"),
 	ERROR("error.png"),
 	EXCHANGE_BG_LEFT("graphical/exchange_bg_left.jpg"),

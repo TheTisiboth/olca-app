@@ -2,9 +2,6 @@ package org.openlca.app.wizards.calculation;
 
 import java.util.Arrays;
 import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.math3.exception.MathIllegalArgumentException;
@@ -24,16 +21,11 @@ import org.openlca.app.util.ErrorReporter;
 import org.openlca.app.util.MsgBox;
 import org.openlca.app.util.Question;
 import org.openlca.app.util.UI;
-import org.openlca.core.database.FlowDao;
-import org.openlca.core.database.ProductSystemDao;
-import org.openlca.core.math.CalculationType;
 import org.openlca.core.math.SystemCalculator;
 import org.openlca.core.math.data_quality.DQResult;
-import org.openlca.core.model.Exchange;
-import org.openlca.core.model.Flow;
+import org.openlca.core.model.CalculationTarget;
+import org.openlca.core.model.CalculationType;
 import org.openlca.core.model.ModelType;
-import org.openlca.core.model.ProductSystem;
-import org.openlca.core.results.SimpleResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,19 +38,19 @@ public class CalculationWizard extends Wizard {
 	private final Setup setup;
 	private final Logger log = LoggerFactory.getLogger(this.getClass());
 
-	public CalculationWizard(ProductSystem system) {
-		this.setup = Setup.init(system);
+	public CalculationWizard(CalculationTarget target) {
+		this.setup = Setup.init(target);
 		setNeedsProgressMonitor(true);
 		setWindowTitle(M.CalculationProperties);
 	}
 
-	public static void open(ProductSystem system) {
-		if (system == null)
+	public static void open(CalculationTarget target) {
+		if (target == null)
 			return;
 		boolean doContinue = checkForUnsavedContent();
 		if (!doContinue)
 			return;
-		var wizard = new CalculationWizard(system);
+		var wizard = new CalculationWizard(target);
 		var dialog = new WizardDialog(UI.shell(), wizard);
 		dialog.open();
 	}
@@ -127,15 +119,14 @@ public class CalculationWizard extends Wizard {
 	}
 
 	private void runCalculation() {
+
 		// for MC simulations, just open the simulation editor
-		if (setup.calcType == CalculationType.MONTE_CARLO_SIMULATION) {
-			setup.calcSetup.withUncertainties = true;
+		if (setup.hasType(CalculationType.MONTE_CARLO_SIMULATION)) {
 			SimulationEditor.open(setup.calcSetup);
 			return;
 		}
 
-		setup.calcSetup.withUncertainties = false;
-		boolean upstream = setup.calcType == CalculationType.UPSTREAM_ANALYSIS;
+		boolean upstream = setup.hasType(CalculationType.UPSTREAM_ANALYSIS);
 
 		// run the calculation
 		log.trace("run calculation");
@@ -145,10 +136,6 @@ public class CalculationWizard extends Wizard {
 			: calc.calculateContributions(setup.calcSetup);
 
 		// check storage and DQ calculation
-		if (setup.storeInventory) {
-			log.trace("store inventory");
-			saveInventory(result);
-		}
 		DQResult dqResult = null;
 		if (setup.withDataQuality) {
 			log.trace("calculate data quality result");
@@ -161,43 +148,5 @@ public class CalculationWizard extends Wizard {
 		Sort.sort(result);
 		log.trace("calculation done; open editor");
 		ResultEditor.open(setup.calcSetup, result, dqResult);
-	}
-
-	private void saveInventory(SimpleResult r) {
-		var system = setup.calcSetup.productSystem;
-		system.inventory.clear();
-		var db = Database.get();
-		var sysDao = new ProductSystemDao(db);
-		var enviIndex = r.enviIndex();
-		if (enviIndex == null || enviIndex.isEmpty()) {
-			sysDao.update(system);
-			return;
-		}
-
-		// load the used flows
-		Set<Long> flowIDs = new HashSet<>();
-		enviIndex.each((i, f) -> {
-			if (f.flow() == null)
-				return;
-			flowIDs.add(f.flow().id);
-		});
-		Map<Long, Flow> flows = new FlowDao(db)
-			.getForIds(flowIDs).stream()
-			.collect(Collectors.toMap(f -> f.id, f -> f));
-
-		// create the exchanges
-		enviIndex.each((i, f) -> {
-			if (f.flow() == null)
-				return;
-			Flow flow = flows.get(f.flow().id);
-			if (flow == null)
-				return;
-			var e = Exchange.of(flow);
-			e.amount = r.getTotalFlowResult(f);
-			e.isInput = f.isInput();
-			system.inventory.add(e);
-		});
-
-		sysDao.update(system);
 	}
 }

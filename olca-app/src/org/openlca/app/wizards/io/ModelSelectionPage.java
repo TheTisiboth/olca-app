@@ -2,6 +2,7 @@ package org.openlca.app.wizards.io;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 
 import org.eclipse.jface.viewers.CheckboxTreeViewer;
@@ -23,20 +24,23 @@ import org.openlca.app.navigation.NavigationComparator;
 import org.openlca.app.navigation.NavigationContentProvider;
 import org.openlca.app.navigation.NavigationLabelProvider;
 import org.openlca.app.navigation.Navigator;
+import org.openlca.app.navigation.elements.INavigationElement;
+import org.openlca.app.navigation.elements.ModelElement;
 import org.openlca.app.navigation.filters.ModelTypeFilter;
 import org.openlca.app.preferences.Preferences;
 import org.openlca.app.util.Colors;
 import org.openlca.app.util.Controls;
+import org.openlca.app.util.Labels;
 import org.openlca.app.util.UI;
-import org.openlca.core.database.config.DatabaseConfig;
 import org.openlca.core.model.ModelType;
 import org.openlca.core.model.descriptors.Descriptor;
 
 class ModelSelectionPage extends WizardPage {
 
-	private ModelType[] types;
+	private final ModelType[] types;
+	private final List<Descriptor> selectedModels = new ArrayList<>();
+
 	private File exportDestination;
-	private List<Descriptor> selectedComponents = new ArrayList<>();
 	private CheckboxTreeViewer viewer;
 	private boolean targetIsDir;
 	private String fileExtension;
@@ -52,7 +56,7 @@ class ModelSelectionPage extends WizardPage {
 	 * *.zip
 	 */
 	static ModelSelectionPage forFile(String extension,
-			ModelType... types) {
+																		ModelType... types) {
 		ModelSelectionPage page = new ModelSelectionPage(types);
 		page.targetIsDir = false;
 		page.fileExtension = extension;
@@ -71,49 +75,21 @@ class ModelSelectionPage extends WizardPage {
 	}
 
 	public List<Descriptor> getSelectedModels() {
-		return selectedComponents;
+		return selectedModels;
 	}
 
 	private void createTexts() {
-		// TODO: change labels to 'Select data sets etc.'
-		String typeName = getTypeName();
-		String title = M.bind(M.Select, typeName);
-		setTitle(title);
-		String descr = M.SelectObjectPage_Description;
-		descr = M.bind(descr, typeName);
+		var typeName = types == null || types.length != 1
+			? M.DataSets
+			: Labels.plural(types[0]);
+		setTitle(M.bind(M.Select, typeName));
+		var descr = M.bind(M.SelectObjectPage_Description, typeName);
 		setDescription(descr);
 	}
 
-	// TODO: this method can be removed if the labels are a bit more generic
-	private String getTypeName() {
-		if (types == null || types.length != 1)
-			return M.DataSets;
-		ModelType type = types[0];
-		switch (type) {
-		case PROCESS:
-			return M.Processes;
-		case IMPACT_METHOD:
-			return M.ImpactAssessmentMethods;
-		case FLOW:
-			return M.Flows;
-		case FLOW_PROPERTY:
-			return M.FlowProperties;
-		case UNIT_GROUP:
-			return M.UnitGroups;
-		case ACTOR:
-			return M.Actors;
-		case SOURCE:
-			return M.Sources;
-		case PRODUCT_SYSTEM:
-			return M.ProductSystems;
-		default:
-			return "unknown";
-		}
-	}
 
 	void checkCompletion() {
-		setPageComplete(exportDestination != null
-				&& selectedComponents.size() > 0);
+		setPageComplete(exportDestination != null && selectedModels.size() > 0);
 	}
 
 	@Override
@@ -167,8 +143,8 @@ class ModelSelectionPage extends WizardPage {
 
 	private void selectTarget(Text text) {
 		exportDestination = targetIsDir
-				? FileChooser.selectFolder()
-				: FileChooser.forSavingFile(M.Export, defaultName());
+			? FileChooser.selectFolder()
+			: FileChooser.forSavingFile(M.Export, defaultName());
 		if (exportDestination == null)
 			return;
 		String path = exportDestination.getAbsolutePath();
@@ -195,10 +171,10 @@ class ModelSelectionPage extends WizardPage {
 
 	private void createViewer(Composite composite) {
 		viewer = new CheckboxTreeViewer(composite, SWT.VIRTUAL | SWT.MULTI
-				| SWT.BORDER);
+			| SWT.BORDER);
 		viewer.setUseHashlookup(true);
 		viewer.getTree().setLayoutData(
-				new GridData(SWT.FILL, SWT.FILL, true, true));
+			new GridData(SWT.FILL, SWT.FILL, true, true));
 		viewer.setContentProvider(new NavigationContentProvider());
 		viewer.setLabelProvider(new NavigationLabelProvider(false));
 		viewer.setComparator(new NavigationComparator());
@@ -228,12 +204,54 @@ class ModelSelectionPage extends WizardPage {
 	}
 
 	private void setInitialInput() {
-		if (types != null && types.length == 1)
-			viewer.setInput(Navigator.findElement(types[0]));
-		else {
-			DatabaseConfig config = Database.getActiveConfiguration();
-			viewer.setInput(Navigator.findElement(config));
-		}
-	}
+		var input = types != null && types.length == 1
+			? Navigator.findElement(types[0])
+			: Navigator.findElement(Database.getActiveConfiguration());
+		if (input == null)
+			return;
+		viewer.setInput(input);
 
+		// try to take the selection from the navigator
+		var navigator = Navigator.getInstance();
+		if (navigator == null)
+			return;
+		var filters = viewer.getFilters();
+		var selection = navigator.getAllSelected()
+			.stream()
+			.filter(elem -> {
+				for (var filter : filters) {
+					if (!filter.select(viewer, elem.getParent(), elem))
+						return false;
+				}
+				return true;
+			})
+			.toArray(INavigationElement<?>[]::new);
+		if (selection.length == 0)
+			return;
+
+		// check the selected elements
+		viewer.setCheckedElements(selection);
+		var checkState = new ModelSelectionState(this, viewer);
+		for (var e : selection) {
+			if (e instanceof ModelElement) {
+				checkState.updateSelection((ModelElement) e, true);
+			}
+			checkState.updateChildren(e, true);
+			checkState.updateParent(e);
+		}
+
+		// expand the selection
+		var expanded = new HashSet<INavigationElement<?>>();
+		for (var elem : selection) {
+			expanded.add(elem);
+			var parent = elem.getParent();
+			while (parent != null) {
+				expanded.add(parent);
+				parent = parent.getParent();
+			}
+		}
+		viewer.setExpandedElements(expanded.toArray());
+
+		checkCompletion();
+	}
 }

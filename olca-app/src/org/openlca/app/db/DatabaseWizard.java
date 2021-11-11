@@ -1,6 +1,5 @@
 package org.openlca.app.db;
 
-import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -12,11 +11,12 @@ import org.openlca.app.cloud.ui.commits.HistoryView;
 import org.openlca.app.cloud.ui.diff.CompareView;
 import org.openlca.app.editors.Editors;
 import org.openlca.app.navigation.Navigator;
+import org.openlca.app.util.ErrorReporter;
 import org.openlca.app.util.UI;
-import org.openlca.app.validation.ValidationView;
 import org.openlca.core.database.config.DatabaseConfig;
 import org.openlca.core.database.config.DerbyConfig;
 import org.openlca.core.database.config.MySqlConfig;
+import org.openlca.core.database.upgrades.Upgrades;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
  */
 public class DatabaseWizard extends Wizard {
 
-	private Logger log = LoggerFactory.getLogger(this.getClass());
+	private final Logger log = LoggerFactory.getLogger(this.getClass());
 	private DatabaseWizardPage page;
 
 	public DatabaseWizard() {
@@ -44,14 +44,14 @@ public class DatabaseWizard extends Wizard {
 		try {
 			if (!Editors.closeAll())
 				return false;
-			DatabaseConfig config = page.getPageData();
-			Runner runner = (config instanceof DerbyConfig) ? new Runner(
-					config, page.getSelectedContent()) : new Runner(config);
+			var config = page.getPageData();
+			var runner = (config instanceof DerbyConfig)
+				? new Runner(config, page.getSelectedContent())
+				: new Runner(config);
 			getContainer().run(true, false, runner);
 			Navigator.refresh();
 			HistoryView.refresh();
 			CompareView.clear();
-			ValidationView.clear();
 			return true;
 		} catch (Exception e) {
 			log.error("Database creation failed", e);
@@ -60,14 +60,14 @@ public class DatabaseWizard extends Wizard {
 	}
 
 	public static void open() {
-		DatabaseWizard wizard = new DatabaseWizard();
-		WizardDialog dialog = new WizardDialog(UI.shell(), wizard);
+		var wizard = new DatabaseWizard();
+		var dialog = new WizardDialog(UI.shell(), wizard);
 		dialog.open();
 	}
 
-	private class Runner implements IRunnableWithProgress {
+	private static class Runner implements IRunnableWithProgress {
 
-		private DatabaseConfig config;
+		private final DatabaseConfig config;
 		private DbTemplate content;
 
 		Runner(DatabaseConfig config) {
@@ -81,38 +81,44 @@ public class DatabaseWizard extends Wizard {
 
 		@Override
 		public void run(IProgressMonitor monitor)
-				throws InvocationTargetException, InterruptedException {
-			monitor.beginTask(M.CreateDatabase,
-					IProgressMonitor.UNKNOWN);
+			throws InvocationTargetException, InterruptedException {
+			monitor.beginTask(M.CreateDatabase, IProgressMonitor.UNKNOWN);
 			try {
-				Database.close();
-				if (config instanceof MySqlConfig)
-					Database.register((MySqlConfig) config);
-				else if (config instanceof DerbyConfig) {
-					Database.register((DerbyConfig) config);
-					extractDerbyTemplate();
-				}
-				Database.activate(config);
+				createIt();
 			} catch (Exception e) {
-				log.error("Create database failed", e);
+				ErrorReporter.on("failed to create database", e);
 			}
 			monitor.done();
 		}
 
-		private void extractDerbyTemplate() {
-			File dir = DatabaseDir.getRootFolder(config.name());
-			if (dir.exists()) {
-				log.error("could not create database {}; folder with name "
-						+ "already exists", config);
+		private void createIt() {
+			if (config instanceof MySqlConfig) {
+				Database.activate(config);
+				Database.register((MySqlConfig) config);
 				return;
 			}
-			try {
-				content.extract(dir);
-			} catch (Exception e) {
-				log.error("failed to extract database template", e);
+
+			// check that we can extract a Derby database
+			if (!(config instanceof DerbyConfig)) {
+				ErrorReporter.on("Unknown database config: " + config);
+				return;
+			}
+			var dir = DatabaseDir.getRootFolder(config.name());
+			if (dir.exists()) {
+				ErrorReporter.on("Failed to create database: folder "
+					+ dir + " already exists");
+				return;
+			}
+
+			// extract the database template and run possible
+			// upgrades if required
+			content.extract(dir);
+			var db = Database.activate(config);
+			if (db != null) {
+				Upgrades.on(db);
+				Database.register((DerbyConfig) config);
 			}
 		}
-
 	}
 
 }

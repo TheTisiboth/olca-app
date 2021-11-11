@@ -27,8 +27,8 @@ import org.openlca.app.util.Numbers;
 import org.openlca.app.util.UI;
 import org.openlca.app.viewers.Viewers;
 import org.openlca.app.viewers.trees.Trees;
-import org.openlca.core.math.CalculationSetup;
 import org.openlca.core.matrix.index.EnviFlow;
+import org.openlca.core.model.CalculationSetup;
 import org.openlca.core.model.descriptors.ImpactDescriptor;
 import org.openlca.core.results.FullResult;
 import org.openlca.core.results.ResultItemView;
@@ -58,7 +58,7 @@ public class ContributionTreePage extends FormPage {
 	protected void createFormContent(IManagedForm mform) {
 		FormToolkit tk = mform.getToolkit();
 		ScrolledForm form = UI.formHeader(mform,
-				Labels.name(setup.productSystem),
+				Labels.name(setup.target()),
 				Images.get(result));
 		Composite body = UI.formBody(form, tk);
 		Composite comp = tk.createComposite(body);

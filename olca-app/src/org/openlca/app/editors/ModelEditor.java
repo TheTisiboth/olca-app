@@ -205,6 +205,13 @@ public abstract class ModelEditor<T extends CategorizedEntity>
 		return (ModelEditorInput) super.getEditorInput();
 	}
 
+	/**
+	 * A shortcut for {@code setDirty(true)}.
+	 */
+	public void setDirty() {
+		setDirty(true);
+	}
+
 	public void setDirty(boolean b) {
 		if (dirty != b) {
 			dirty = b;
@@ -232,7 +239,7 @@ public abstract class ModelEditor<T extends CategorizedEntity>
 			return;
 		String newName = diag.getValue();
 		try {
-			T clone = (T) model.clone();
+			T clone = (T) model.copy();
 			if (clone.isFromLibrary()) {
 				clone.library = null;
 				clone.category = Categories.removeLibraryFrom(clone.category);

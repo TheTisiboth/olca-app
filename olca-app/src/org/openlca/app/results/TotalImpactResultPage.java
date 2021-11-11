@@ -33,9 +33,9 @@ import org.openlca.app.viewers.Viewers;
 import org.openlca.app.viewers.trees.TreeClipboard;
 import org.openlca.app.viewers.trees.TreeClipboard.ClipboardLabelProvider;
 import org.openlca.app.viewers.trees.Trees;
-import org.openlca.core.math.CalculationSetup;
 import org.openlca.core.math.data_quality.DQResult;
 import org.openlca.core.matrix.index.EnviFlow;
+import org.openlca.core.model.CalculationSetup;
 import org.openlca.core.model.ModelType;
 import org.openlca.core.model.descriptors.CategorizedDescriptor;
 import org.openlca.core.model.descriptors.ImpactDescriptor;
@@ -63,12 +63,12 @@ public class TotalImpactResultPage extends FormPage {
 	@Override
 	protected void createFormContent(IManagedForm mform) {
 		ScrolledForm form = UI.formHeader(mform,
-				Labels.name(setup.productSystem),
+				Labels.name(setup.target()),
 				Images.get(result));
 		toolkit = mform.getToolkit();
 		Composite body = UI.formBody(form, toolkit);
 		Section section = UI.section(body, toolkit, M.ImpactAnalysis + ": "
-				+ Labels.name(setup.impactMethod));
+				+ Labels.name(setup.impactMethod()));
 		UI.gridData(section, true, true);
 		Composite client = toolkit.createComposite(section);
 		section.setClient(client);

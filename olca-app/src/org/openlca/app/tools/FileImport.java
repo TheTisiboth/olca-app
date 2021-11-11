@@ -14,6 +14,8 @@ import org.eclipse.ui.forms.IManagedForm;
 import org.openlca.app.M;
 import org.openlca.app.db.Database;
 import org.openlca.app.devtools.SaveScriptDialog;
+import org.openlca.app.editors.results.openepd.input.ImportDialog;
+import org.openlca.app.editors.results.openepd.model.Ec3Epd;
 import org.openlca.app.navigation.Navigator;
 import org.openlca.app.navigation.actions.db.DbRestoreAction;
 import org.openlca.app.navigation.actions.libraries.MountLibraryAction;
@@ -35,6 +37,7 @@ import org.openlca.core.database.IDatabase;
 import org.openlca.core.database.MappingFileDao;
 import org.openlca.io.Format;
 import org.openlca.io.maps.FlowMap;
+import org.openlca.jsonld.Json;
 import org.openlca.util.Strings;
 
 public class FileImport {
@@ -52,61 +55,61 @@ public class FileImport {
 		// handle script files
 		var name = file.getName().toLowerCase();
 		if (name.endsWith(".py")
-				|| name.endsWith(".sql")) {
+			|| name.endsWith(".sql")) {
 			SaveScriptDialog.forImportOf(file);
 			return;
 		}
 
+		// check if it is a known import format
 		var format = Format.detect(file).orElse(null);
-		if (format == null) {
-			MsgBox.info("Unknown format",
-					"openLCA could not detect the format of the file '"
-							+ file.getName() + "'. You can also try an "
-							+ "import option in the generic import dialog "
-							+ "under Import > Other");
+		if (format != null) {
+			handleFormat(file, format);
 			return;
 		}
 
+		// check if it is an OpenEPD file
+		if (name.endsWith(".json")) {
+			try {
+				// TODO: add and use generic Json.read(file): JsonElement
+				// then check if it is a JsonObject
+				var obj = Json.readObject(file).orElse(null);
+				if (obj != null && obj.has("pcr") && obj.has("impacts")) {
+					var epd = Ec3Epd.fromJson(obj).orElse(null);
+					if (epd != null) {
+						ImportDialog.show(epd);
+						return;
+					}
+				}
+			} catch (Exception ignored) {
+			}
+		}
+
+		MsgBox.info("Unknown format",
+			"openLCA could not detect the format of the file '"
+				+ file.getName() + "'. You can also try an "
+				+ "import option in the generic import dialog "
+				+ "under Import > Other");
+
+	}
+
+	private void handleFormat(File file, Format format) {
 		switch (format) {
-			case ES1_XML:
-			case ES1_ZIP:
-				EcoSpold01ImportWizard.of(file);
-				break;
-			case ES2_XML:
-			case ES2_ZIP:
-				EcoSpold2ImportWizard.of(file);
-				break;
-			case EXCEL:
-				ExcelImportWizard.of(file);
-				break;
-			case GEO_JSON:
-				GeoJsonImportWizard.of(file);
-				break;
-			case ILCD_ZIP:
-				ILCDImportWizard.of(file);
-				break;
-			case JSON_LD_ZIP:
-				JsonImportWizard.of(file);
-				break;
-			case LIBRARY_PACKAGE:
-				MountLibraryAction.run(file);
-				break;
-			case MAPPING_CSV:
-				importMappingFile(file);
-				break;
-			case SIMAPRO_CSV:
-				SimaProCsvImportWizard.of(file);
-				break;
-			case ZOLCA:
-				importZOLCA(file);
-				break;
-			default:
-				MsgBox.info("No import found",
-						"Format '" + format + "' was detected but no" +
-								" import wizard could be found. You can" +
-								" try the generic import under `Import >" +
-								" Other...` for selecting a more specific" +
-								" option.");
+			case ES1_XML, ES1_ZIP -> EcoSpold01ImportWizard.of(file);
+			case ES2_XML, ES2_ZIP -> EcoSpold2ImportWizard.of(file);
+			case EXCEL -> ExcelImportWizard.of(file);
+			case GEO_JSON -> GeoJsonImportWizard.of(file);
+			case ILCD_ZIP -> ILCDImportWizard.of(file);
+			case JSON_LD_ZIP -> JsonImportWizard.of(file);
+			case LIBRARY_PACKAGE -> MountLibraryAction.run(file);
+			case MAPPING_CSV -> importMappingFile(file);
+			case SIMAPRO_CSV -> SimaProCsvImportWizard.of(file);
+			case ZOLCA -> importZOLCA(file);
+			default -> MsgBox.info("No import found",
+				"Format '" + format + "' was detected but no" +
+					" import wizard could be found. You can" +
+					" try the generic import under `Import >" +
+					" Other...` for selecting a more specific" +
+					" option.");
 		}
 	}
 
@@ -156,7 +159,7 @@ public class FileImport {
 
 		} catch (Exception e) {
 			ErrorReporter.on("Failed to save as " +
-				"mapping file: " + file, e );
+				"mapping file: " + file, e);
 		}
 	}
 
@@ -164,7 +167,7 @@ public class FileImport {
 		var db = Database.get();
 		if (db == null) {
 			var b = Question.ask("Import database?",
-					"Import file '" + file.getName() + "' as new database?");
+				"Import file '" + file.getName() + "' as new database?");
 			if (b) {
 				DbRestoreAction.run(file);
 			}
@@ -203,21 +206,21 @@ public class FileImport {
 			var body = UI.formBody(mform.getForm(), tk);
 			UI.gridLayout(body, 1);
 			tk.createLabel(body,
-					"Import file " + zolca.getName());
+				"Import file " + zolca.getName());
 
 			var opt1 = tk.createButton(body,
-					"As standalone database", SWT.RADIO);
+				"As standalone database", SWT.RADIO);
 			opt1.setSelection(!intoActiveDB);
 			Controls.onSelect(opt1,
-					_e -> intoActiveDB = !opt1.getSelection());
+				_e -> intoActiveDB = !opt1.getSelection());
 
 			var opt2 = tk.createButton(body,
-					"Into the active database " +
-							activeDB.getName(),
-					SWT.RADIO);
+				"Into the active database " +
+					activeDB.getName(),
+				SWT.RADIO);
 			opt2.setSelection(intoActiveDB);
 			Controls.onSelect(opt2,
-					_e -> intoActiveDB = opt2.getSelection());
+				_e -> intoActiveDB = opt2.getSelection());
 
 			mform.reflow(true);
 		}

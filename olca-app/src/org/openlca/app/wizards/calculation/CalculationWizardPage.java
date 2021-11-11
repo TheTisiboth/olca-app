@@ -21,8 +21,9 @@ import org.openlca.app.util.UI;
 import org.openlca.app.viewers.combo.AllocationCombo;
 import org.openlca.app.viewers.combo.ImpactMethodViewer;
 import org.openlca.app.viewers.combo.NwSetComboViewer;
-import org.openlca.core.math.CalculationType;
 import org.openlca.core.model.AllocationMethod;
+import org.openlca.core.model.CalculationType;
+import org.openlca.core.model.descriptors.Descriptor;
 import org.openlca.util.Strings;
 
 /**
@@ -52,7 +53,7 @@ class CalculationWizardPage extends WizardPage {
 		if (!isPageComplete())
 			return false;
 		return setup.withDataQuality &&
-				setup.calcType != CalculationType.MONTE_CARLO_SIMULATION;
+			!setup.hasType(CalculationType.MONTE_CARLO_SIMULATION);
 	}
 
 	@Override
@@ -72,7 +73,7 @@ class CalculationWizardPage extends WizardPage {
 		new Label(body, SWT.NONE);
 		UI.gridData(new Label(
 				body, SWT.SEPARATOR | SWT.HORIZONTAL),
-				true, false);
+			true, false);
 		new Label(body, SWT.NONE);
 
 		// options
@@ -88,8 +89,10 @@ class CalculationWizardPage extends WizardPage {
 	}
 
 	private void createParamSetCombo(Composite comp) {
+		if (!setup.calcSetup.hasProductSystem())
+			return;
 		var paramSets = new ArrayList<>(
-				setup.calcSetup.productSystem.parameterSets);
+			setup.calcSetup.productSystem().parameterSets);
 		if (paramSets.size() < 2)
 			return;
 
@@ -103,7 +106,7 @@ class CalculationWizardPage extends WizardPage {
 
 		UI.formLabel(comp, "Parameter set");
 		var combo = new TableCombo(comp,
-				SWT.READ_ONLY | SWT.BORDER);
+			SWT.READ_ONLY | SWT.BORDER);
 		UI.gridData(combo, true, false);
 		for (var paramSet : paramSets) {
 			var item = new TableItem(
@@ -122,13 +125,11 @@ class CalculationWizardPage extends WizardPage {
 	private void createAllocationCombo(Composite comp) {
 		UI.formLabel(comp, M.AllocationMethod);
 		var combo = new AllocationCombo(
-				comp, AllocationMethod.values());
+			comp, AllocationMethod.values());
 		combo.setNullable(false);
 		combo.select(Objects.requireNonNullElse(
-				setup.calcSetup.allocationMethod,
-				AllocationMethod.NONE));
-		combo.addSelectionChangedListener(
-				m -> setup.calcSetup.allocationMethod = m);
+			setup.calcSetup.allocation(), AllocationMethod.NONE));
+		combo.addSelectionChangedListener(setup.calcSetup::withAllocation);
 	}
 
 	private void createMethodCombo(Composite comp) {
@@ -136,11 +137,13 @@ class CalculationWizardPage extends WizardPage {
 		var combo = new ImpactMethodViewer(comp);
 		combo.setNullable(true);
 		combo.setInput(Database.get());
-		combo.select(setup.calcSetup.impactMethod);
+		if (setup.calcSetup.impactMethod() != null) {
+			combo.select(Descriptor.of(setup.calcSetup.impactMethod()));
+		}
 		combo.addSelectionChangedListener(_e -> {
 			var method = combo.getSelected();
-			setup.calcSetup.impactMethod = method;
 			nwViewer.setInput(method);
+			setup.setMethod(method);
 		});
 	}
 
@@ -148,24 +151,26 @@ class CalculationWizardPage extends WizardPage {
 		UI.formLabel(parent, M.NormalizationAndWeightingSet);
 		nwViewer = new NwSetComboViewer(parent, Database.get());
 		nwViewer.setNullable(true);
-		nwViewer.setInput(setup.calcSetup.impactMethod);
-		if (setup.calcSetup.nwSet != null) {
-			nwViewer.select(setup.calcSetup.nwSet);
+		var method = setup.calcSetup.impactMethod();
+		if (method != null) {
+			nwViewer.setInput(Descriptor.of(method));
 		}
-		nwViewer.addSelectionChangedListener(
-				nwSet -> setup.calcSetup.nwSet = nwSet);
+		if (setup.calcSetup.nwSet() != null) {
+			nwViewer.select(Descriptor.of(setup.calcSetup.nwSet()));
+		}
+		nwViewer.addSelectionChangedListener(setup::setNwSet);
 	}
 
 	private void createTypeRadios(Composite parent) {
 		CalculationType[] types = {
-				CalculationType.CONTRIBUTION_ANALYSIS,
-				CalculationType.UPSTREAM_ANALYSIS,
-				CalculationType.MONTE_CARLO_SIMULATION,
+			CalculationType.CONTRIBUTION_ANALYSIS,
+			CalculationType.UPSTREAM_ANALYSIS,
+			CalculationType.MONTE_CARLO_SIMULATION,
 		};
 		boolean[] enabled = {
-				true,
-				true,
-				!setup.hasLibraries,
+			true,
+			true,
+			!setup.hasLibraries,
 		};
 
 		UI.formLabel(parent, M.CalculationType);
@@ -176,14 +181,14 @@ class CalculationWizardPage extends WizardPage {
 		for (int i = 0; i < types.length; i++) {
 			var radio = new Button(comp, SWT.RADIO);
 			radio.setText(getLabel(types[i]));
-			radio.setSelection(setup.calcType == types[i]);
+			radio.setSelection(setup.hasType(types[i]));
 			radio.setEnabled(enabled[i]);
 			radios[i] = radio;
 			Controls.onSelect(radio, e -> {
 				for (int j = 0; j < types.length; j++) {
 					if (radios[j] == radio) {
 						radio.setSelection(true);
-						setup.calcType = types[j];
+						setup.setType(types[j]);
 					} else {
 						radios[j].setSelection(false);
 					}
@@ -194,16 +199,12 @@ class CalculationWizardPage extends WizardPage {
 	}
 
 	private String getLabel(CalculationType type) {
-		switch (type) {
-		case UPSTREAM_ANALYSIS:
-			return M.Analysis;
-		case MONTE_CARLO_SIMULATION:
-			return M.MonteCarloSimulation;
-		case CONTRIBUTION_ANALYSIS:
-			return M.QuickResults;
-		default:
-			return M.Unknown;
-		}
+		return switch (type) {
+			case UPSTREAM_ANALYSIS -> M.Analysis;
+			case MONTE_CARLO_SIMULATION -> M.MonteCarloSimulation;
+			case CONTRIBUTION_ANALYSIS -> M.QuickResults;
+			default -> M.Unknown;
+		};
 	}
 
 	private void createCommonOptions(Composite parent) {
@@ -221,14 +222,6 @@ class CalculationWizardPage extends WizardPage {
 		if (setup.hasLibraries) {
 			dqCheck.setEnabled(false);
 		}
-
-		if (Database.isConnected()) {
-			var inventoryCheck = new Button(commonOptions, SWT.CHECK);
-			inventoryCheck.setSelection(setup.storeInventory);
-			inventoryCheck.setText(M.StoreInventoryResult);
-			Controls.onSelect(inventoryCheck,
-				_e -> setup.storeInventory = inventoryCheck.getSelection());
-		}
 	}
 
 	private void createMonteCarloOptions(Composite parent) {
@@ -244,16 +237,16 @@ class CalculationWizardPage extends WizardPage {
 		Text iterText = new Text(inner, SWT.BORDER);
 		UI.gridData(iterText, false, false).widthHint = 80;
 
-		int itCount = setup.calcSetup.numberOfRuns;
+		int itCount = setup.calcSetup.numberOfRuns();
 		if (itCount < 1) {
 			itCount = 100;
-			setup.calcSetup.numberOfRuns = itCount;
+			setup.calcSetup.withNumberOfRuns(itCount);
 		}
 		iterText.setText(Integer.toString(itCount));
 		iterText.addModifyListener(_e -> {
 			String text = iterText.getText();
 			try {
-				setup.calcSetup.numberOfRuns = Integer.parseInt(text);
+				setup.calcSetup.withNumberOfRuns(Integer.parseInt(text));
 			} catch (Exception e) {
 				MsgBox.error(M.InvalidNumber, text + " " + M.IsNotValidNumber);
 			}
@@ -264,15 +257,15 @@ class CalculationWizardPage extends WizardPage {
 	private void addRegioAndCostChecks(Composite comp) {
 		var regioCheck = new Button(comp, SWT.CHECK);
 		regioCheck.setText("Regionalized calculation");
-		regioCheck.setSelection(setup.calcSetup.withRegionalization);
+		regioCheck.setSelection(setup.calcSetup.hasRegionalization());
 		Controls.onSelect(regioCheck,
-			_e -> setup.calcSetup.withRegionalization = regioCheck.getSelection());
+			_e -> setup.calcSetup.withRegionalization(regioCheck.getSelection()));
 
 		var costCheck = new Button(comp, SWT.CHECK);
 		costCheck.setText(M.IncludeCostCalculation);
-		costCheck.setSelection(setup.calcSetup.withCosts);
+		costCheck.setSelection(setup.calcSetup.hasCosts());
 		Controls.onSelect(costCheck,
-			_e -> setup.calcSetup.withCosts = costCheck.getSelection());
+			_e -> setup.calcSetup.withCosts(costCheck.getSelection()));
 		if (setup.hasLibraries) {
 			costCheck.setEnabled(false);
 		}
@@ -280,7 +273,7 @@ class CalculationWizardPage extends WizardPage {
 
 	private void updateOptions() {
 		StackLayout layout = (StackLayout) optionStack.getLayout();
-		if (setup.calcType == CalculationType.MONTE_CARLO_SIMULATION) {
+		if (setup.hasType(CalculationType.MONTE_CARLO_SIMULATION)) {
 			layout.topControl = monteCarloOptions;
 		} else {
 			layout.topControl = commonOptions;

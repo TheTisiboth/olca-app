@@ -1,12 +1,19 @@
 package org.openlca.app.util;
 
 import java.util.function.Consumer;
+import java.util.function.DoubleConsumer;
 
+import org.apache.poi.ss.formula.functions.T;
 import org.eclipse.nebula.widgets.tablecombo.TableCombo;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.PaintEvent;
+import org.eclipse.swt.events.PaintListener;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
+import org.eclipse.swt.events.TraverseEvent;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.List;
 import org.eclipse.swt.widgets.MenuItem;
@@ -25,11 +32,42 @@ public class Controls {
 	public static void set(Text text, String s) {
 		if (text == null)
 			return;
-		if (s == null) {
-			text.setText("");
-		} else {
-			text.setText(s);
-		}
+		text.setText(s == null ? "" : s);
+	}
+
+	public static void set(Text text, String initial, Consumer<String> fn){
+		set(text, initial);
+		if (text == null || fn == null)
+			return;
+		text.addModifyListener($ -> fn.accept(text.getText()));
+	}
+
+	public static void set(Text text, double initial, DoubleConsumer fn) {
+		set(text, Double.toString(initial));
+		if (text == null || fn == null)
+			return;
+		text.addModifyListener($ -> {
+			try {
+				var d = Double.parseDouble(text.getText());
+				fn.accept(d);
+				text.setBackground(Colors.white());
+			} catch (NumberFormatException e) {
+				text.setBackground(Colors.errorColor());
+			}
+		});
+	}
+
+	public static <T extends Control> void onPainted(T widget, Runnable fn) {
+		if (widget == null || fn == null)
+			return;
+		var listener = new PaintListener() {
+			@Override
+			public void paintControl(PaintEvent e) {
+				fn.run();
+				widget.removePaintListener(this);
+			}
+		};
+		widget.addPaintListener(listener);
 	}
 
 	public static void onSelect(Combo combo, Consumer<SelectionEvent> consumer) {
@@ -85,6 +123,16 @@ public class Controls {
 		link.addHyperlinkListener(new HyperlinkAdapter() {
 			@Override
 			public void linkActivated(HyperlinkEvent e) {
+				fn.accept(e);
+			}
+		});
+	}
+
+	public static void onReturn(Text text, Consumer<TraverseEvent> fn) {
+		if (text == null || fn == null)
+			return;
+		text.addTraverseListener(e -> {
+			if (e.detail == SWT.TRAVERSE_RETURN) {
 				fn.accept(e);
 			}
 		});

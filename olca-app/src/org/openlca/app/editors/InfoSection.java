@@ -1,9 +1,7 @@
 package org.openlca.app.editors;
 
-import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.List;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicReference;
@@ -25,6 +23,7 @@ import org.eclipse.ui.forms.events.HyperlinkEvent;
 import org.eclipse.ui.forms.widgets.FormToolkit;
 import org.eclipse.ui.forms.widgets.Hyperlink;
 import org.eclipse.ui.forms.widgets.ImageHyperlink;
+import org.eclipse.ui.forms.widgets.Section;
 import org.openlca.app.M;
 import org.openlca.app.db.Database;
 import org.openlca.app.editors.comments.CommentControl;
@@ -33,6 +32,7 @@ import org.openlca.app.rcp.images.Icon;
 import org.openlca.app.rcp.images.Images;
 import org.openlca.app.util.Colors;
 import org.openlca.app.util.Controls;
+import org.openlca.app.util.Numbers;
 import org.openlca.app.util.UI;
 import org.openlca.core.model.CategorizedEntity;
 import org.openlca.core.model.Category;
@@ -48,6 +48,7 @@ public class InfoSection {
 	private CategorizedEntity entity;
 	private final ModelEditor<?> editor;
 
+	private Section section;
 	private Composite container;
 	private Label versionLabel;
 
@@ -56,8 +57,9 @@ public class InfoSection {
 		this.editor = editor;
 	}
 
-	public void render(Composite body, FormToolkit tk) {
-		container = UI.formSection(body, tk, M.GeneralInformation, 3);
+	public InfoSection render(Composite body, FormToolkit tk) {
+		section = UI.section(body, tk, M.GeneralInformation);
+		container = UI.sectionClient(section, tk, 3);
 
 		// name, library, description
 		Widgets.text(container, M.Name, "name", editor, tk)
@@ -95,6 +97,16 @@ public class InfoSection {
 		// date & tags
 		createDateText(tk);
 		createTags(tk);
+
+		return this;
+	}
+
+	public Composite composite() {
+		return container;
+	}
+
+	public Section section() {
+		return section;
 	}
 
 	private void createVersionText(FormToolkit tk) {
@@ -115,15 +127,14 @@ public class InfoSection {
 	}
 
 	private void createDateText(FormToolkit tk) {
-		var format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
 		UI.formLabel(container, tk, M.LastChange);
 		Label text = UI.formLabel(container, tk, "");
 		if (entity.lastChange != 0) {
-			text.setText(format.format(new Date(entity.lastChange)));
+			text.setText(Numbers.asTimestamp(entity.lastChange));
 		}
 		editor.onSaved(() -> {
 			entity = editor.getModel();
-			text.setText(format.format(new Date(entity.lastChange)));
+			text.setText(Numbers.asTimestamp(entity.lastChange));
 		});
 		UI.filler(container, tk);
 	}
@@ -207,10 +218,6 @@ public class InfoSection {
 		});
 
 		UI.filler(container, tk);
-	}
-
-	public Composite getContainer() {
-		return container;
 	}
 
 	private static class CategoryLinkClick extends HyperlinkAdapter {

@@ -15,7 +15,7 @@ import org.eclipse.ui.forms.widgets.Section;
 import org.openlca.app.App;
 import org.openlca.app.M;
 import org.openlca.app.components.FormulaCellEditor;
-import org.openlca.app.components.ModelSelectionDialog;
+import org.openlca.app.components.ModelSelector;
 import org.openlca.app.components.UncertaintyCellEditor;
 import org.openlca.app.db.Database;
 import org.openlca.app.editors.comments.CommentAction;
@@ -142,9 +142,8 @@ class ExchangeTable {
 				() -> editor.getModel().parameters);
 		ms.bind(AMOUNT, amountEditor);
 		amountEditor.onEdited((obj, amount) -> {
-			if (!(obj instanceof Exchange))
+			if (!(obj instanceof Exchange e))
 				return;
-			Exchange e = (Exchange) obj;
 			try {
 				double value = Double.parseDouble(amount);
 				e.formula = null;
@@ -161,7 +160,8 @@ class ExchangeTable {
 	private void bindActions(Section section) {
 		if (!editor.isEditable())
 			return;
-		Action add = Actions.onAdd(this::onAdd);
+		var add = Actions.onAdd(
+				() -> add(ModelSelector.multiSelect(ModelType.FLOW)));
 		Action remove = Actions.onRemove(this::onRemove);
 		Action qRef = Actions.create(M.SetAsQuantitativeReference, null, () -> {
 			Exchange e = Viewers.getFirstSelected(viewer);
@@ -169,7 +169,7 @@ class ExchangeTable {
 				return;
 			editor.getModel().quantitativeReference = e;
 			page.refreshTables();
-			editor.setDirty(true);
+			editor.setDirty();
 		});
 		Action formulaSwitch = new FormulaSwitchAction();
 		Action copy = TableClipboard.onCopySelected(viewer, this::toClipboard);
@@ -203,7 +203,7 @@ class ExchangeTable {
 		Tables.onDoubleClick(table, e -> {
 			TableItem item = Tables.getItem(table, e);
 			if (item == null) {
-				onAdd();
+				add(ModelSelector.multiSelect(ModelType.FLOW));
 				return;
 			}
 			Exchange exchange = Viewers.getFirstSelected(table);
@@ -223,13 +223,6 @@ class ExchangeTable {
 		return columns.toArray(new String[0]);
 	}
 
-	private void onAdd() {
-		var descriptors = ModelSelectionDialog.multiSelect(ModelType.FLOW);
-		if (descriptors != null) {
-			add(Arrays.asList(descriptors));
-		}
-	}
-
 	private void onRemove() {
 		Process process = editor.getModel();
 		List<Exchange> selection = Viewers.getAllSelected(viewer);
@@ -244,7 +237,7 @@ class ExchangeTable {
 		editor.postEvent(ProcessEditor.EXCHANGES_CHANGED, this);
 	}
 
-	private void add(List<Descriptor> descriptors) {
+	private void add(List<? extends Descriptor> descriptors) {
 		if (descriptors.isEmpty())
 			return;
 		Process process = editor.getModel();
@@ -294,9 +287,8 @@ class ExchangeTable {
 		if (item == null)
 			return "";
 		Object data = item.getData();
-		if (!(data instanceof Exchange))
+		if (!(data instanceof Exchange e))
 			return TableClipboard.text(item, col);
-		Exchange e = (Exchange) data;
 		switch (col) {
 		case 1:
 			if (e.flow != null && e.flow.category != null)
@@ -316,7 +308,7 @@ class ExchangeTable {
 					&& Strings.notEmpty(e.costFormula))
 				return e.costFormula + " " + e.currency.code;
 			else
-				return e.costs.toString() + " " + e.currency.code;
+				return e.costs + " " + e.currency.code;
 		case 6:
 			return e.isAvoided ? "TRUE" : "";
 		default:
@@ -341,9 +333,8 @@ class ExchangeTable {
 	private class Filter extends ViewerFilter {
 		@Override
 		public boolean select(Viewer viewer, Object parent, Object obj) {
-			if (!(obj instanceof Exchange))
+			if (!(obj instanceof Exchange e))
 				return false;
-			Exchange e = (Exchange) obj;
 			if (e.isAvoided)
 				return e.isInput != forInputs;
 			else

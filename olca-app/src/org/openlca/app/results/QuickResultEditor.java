@@ -7,8 +7,8 @@ import org.eclipse.ui.PartInitException;
 import org.openlca.app.db.Cache;
 import org.openlca.app.results.contributions.locations.LocationPage;
 import org.openlca.app.results.grouping.GroupPage;
-import org.openlca.core.math.CalculationSetup;
 import org.openlca.core.math.data_quality.DQResult;
+import org.openlca.core.model.CalculationSetup;
 import org.openlca.core.results.ContributionResult;
 import org.openlca.core.results.ResultItemView;
 import org.slf4j.Logger;
@@ -48,7 +48,7 @@ public class QuickResultEditor extends ResultEditor<ContributionResult> {
 			if (result.hasImpacts()) {
 				addPage(new TotalImpactResultPage(this));
 			}
-			if (result.hasImpacts() && setup.nwSet != null) {
+			if (result.hasImpacts() && setup.nwSet() != null) {
 				addPage(new NwResultPage(this, result, setup));
 			}
 			addPage(new LocationPage(this, result, setup));
