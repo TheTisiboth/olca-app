@@ -1,7 +1,7 @@
 package org.openlca.app.results.comparison;
 
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
@@ -9,61 +9,67 @@ import org.eclipse.ui.forms.widgets.FormToolkit;
 import org.eclipse.ui.forms.widgets.ImageHyperlink;
 import org.openlca.app.App;
 import org.openlca.app.M;
-import org.openlca.app.editors.Editors;
 import org.openlca.app.rcp.images.Images;
-import org.openlca.app.results.ExcelExportAction;
-import org.openlca.app.results.ResultEditor;
-import org.openlca.app.results.SaveProcessDialog;
+import org.openlca.app.results.comparison.display.TargetCalculationEnum;
 import org.openlca.app.util.Colors;
 import org.openlca.app.util.Controls;
-import org.openlca.app.util.FileType;
 import org.openlca.app.util.Labels;
 import org.openlca.app.util.UI;
-import org.openlca.core.math.CalculationSetup;
+import org.openlca.core.model.CalculationSetup;
 import org.openlca.core.model.CategorizedEntity;
-import org.openlca.core.model.ProcessType;
 import org.openlca.core.model.Project;
 import org.openlca.core.model.descriptors.CategorizedDescriptor;
 
-class InfoSection {
+public class InfoSection {
 
-	static void create(Composite body, FormToolkit tk, CalculationSetup setup) {
-		if (setup == null || setup.productSystem == null)
+	static void create(Composite body, FormToolkit tk, CalculationSetup setup, TargetCalculationEnum target) {
+		if (setup == null || setup.productSystem() == null)
 			return;
 		Composite comp = UI.formSection(body, tk, M.GeneralInformation);
-		if (setup.productSystem.withoutNetwork) {
-			link(comp, tk, M.ReferenceProcess, setup.productSystem.referenceProcess);
-		} else {
-			link(comp, tk, M.ProductSystem, setup.productSystem);
+		Label description = new Label(comp, SWT.WRAP);
+		description.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, true, false));
+		String descriptionText;
+		if (setup.impactMethod() == null) {
+			description.setText(
+					"Please choose an impact method, so we are able to display some information about the selected processes. In order to do so, you have to restart the calculation.");
+			return;
 		}
-		text(comp, tk, M.AllocationMethod, Labels.getEnumText(setup.allocationMethod));
-		if (setup.impactMethod != null) {
-			link(comp, tk, M.ImpactAssessmentMethod, setup.impactMethod);
-		}
-		if (setup.nwSet != null) {
-			text(comp, tk, M.NormalizationAndWeightingSet, setup.nwSet.name);
-		}
-//		buttons(comp, tk);
+		if (target.equals(TargetCalculationEnum.PRODUCT_SYSTEM))
+			descriptionText = "This diagram display the environmental impact of a product system or a process for each chosen impact categories."
+					+ " One horizontal bar contains all the processes contributions from the product system or process that we chose, for one impact category.";
+		else
+			descriptionText = "This diagram display the environmental impact for a chosen impact category for each product system from the project."
+					+ " One horizontal bar contains all the processes contributions from a product system from the project, for the chosen impact category.";
+		descriptionText += " The same processes contributions are linked together, from 2 bar which are next to each other. "
+				+ "The processes contributions are sorted by ascending order, from left to right.\n";
+		if (target.equals(TargetCalculationEnum.PRODUCT_SYSTEM))
+			descriptionText += "In the setting section, you can select the impact categories that you want to analyze."
+					+ " Initialy, they are all selected, with the alphabetical order. If you want to select/unselect impact categories,"
+					+ " the order in which you select them will change the order in which the contributions are displayed.";
+		else
+			descriptionText += "In the setting section, you can select one impact category at a time. that you want to analyze.";
+		descriptionText += " You can change the way the processes contributions are colored by "
+				+ "(either by processes, by location or by process category). "
+				+ "It means that if you select Location, then 2 processes which have the same location will have the same color. "
+				+ "You can also choose to highlight a specific process category, "
+				+ "and change the color that will be displayed for the chosen process category. "
+				+ "You can finally set up a cut-off limit, which indicate how much processes you want to be hidden. "
+				+ "The higher the number is, the less processes are displayed.";
+		description.setText(descriptionText);
 	}
 
 	static void create(Composite body, FormToolkit tk, Project project) {
 		if (project == null)
 			return;
 		Composite comp = UI.formSection(body, tk, M.GeneralInformation);
-		project.variants.stream().forEach(v -> link(comp, tk, M.ProductSystem, v.productSystem));
+		project.variants.stream().forEach(v -> link(comp, M.ProductSystem, v.productSystem));
 
 		if (project.impactMethod != null) {
-			link(comp, tk, M.ImpactAssessmentMethod, project.impactMethod);
+			link(comp, M.ImpactAssessmentMethod, project.impactMethod);
 		}
 		if (project.nwSet != null) {
 			text(comp, tk, M.NormalizationAndWeightingSet, project.nwSet.name);
 		}
-//		buttons(comp, tk);
-	}
-
-	private static String targetAmountText(CalculationSetup setup) {
-		String refFlowName = setup.productSystem.referenceExchange.flow.name;
-		return Math.abs(setup.getAmount()) + " " + setup.getUnit().name + " " + refFlowName;
 	}
 
 	static void text(Composite comp, FormToolkit tk, String label, String val) {
@@ -74,7 +80,7 @@ class InfoSection {
 		text.setEditable(false);
 	}
 
-	static void link(Composite comp, FormToolkit tk, String label, Object entity) {
+	public static void link(Composite comp, String label, Object entity) {
 		new Label(comp, SWT.NONE).setText(label);
 		ImageHyperlink link = new ImageHyperlink(comp, SWT.TOP);
 		link.setForeground(Colors.linkBlue());
@@ -89,23 +95,5 @@ class InfoSection {
 			link.setImage(Images.get(ce));
 			Controls.onClick(link, e -> App.open(ce));
 		}
-	}
-
-	private static void buttons(Composite comp, FormToolkit tk) {
-		tk.createLabel(comp, "");
-		Composite inner = tk.createComposite(comp);
-		UI.gridLayout(inner, 2, 5, 0);
-		Button excel = tk.createButton(inner, M.ExportToExcel, SWT.NONE);
-		excel.setImage(Images.get(FileType.EXCEL));
-		Controls.onSelect(excel, e -> new ExcelExportAction().run());
-		Button lci = tk.createButton(inner, M.SaveAsLCIResult, SWT.NONE);
-		lci.setImage(Images.get(ProcessType.LCI_RESULT));
-		Controls.onSelect(lci, e -> {
-			ResultEditor<?> editor = Editors.getActive();
-			if (editor == null)
-				return;
-			SaveProcessDialog.open(editor);
-		});
-
 	}
 }

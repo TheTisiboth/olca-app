@@ -19,19 +19,13 @@ class Label extends LabelProvider
 
 	@Override
 	public Image getColumnImage(Object obj, int col) {
-		if (col != 1 || !(obj instanceof Param))
+		if (col != 1 || !(obj instanceof Param p))
 			return null;
-		Param p = (Param) obj;
-		switch (p.scope()) {
-		case GLOBAL:
-			return Images.get(ModelType.PARAMETER);
-		case IMPACT:
-			return Images.get(ModelType.IMPACT_CATEGORY);
-		case PROCESS:
-			return Images.get(ModelType.PROCESS);
-		default:
-			return null;
-		}
+		return switch (p.scope()) {
+			case GLOBAL -> Images.get(ModelType.PARAMETER);
+			case IMPACT -> Images.get(ModelType.IMPACT_CATEGORY);
+			case PROCESS -> Images.get(ModelType.PROCESS);
+		};
 	}
 
 	@Override
@@ -41,9 +35,8 @@ class Label extends LabelProvider
 
 	@Override
 	public Color getForeground(Object obj, int col) {
-		if (!(obj instanceof Param))
+		if (!(obj instanceof Param param))
 			return null;
-		Param param = (Param) obj;
 		if (col == 1 &&
 				param.scope() != ParameterScope.GLOBAL
 				&& param.owner == null)
@@ -55,9 +48,8 @@ class Label extends LabelProvider
 
 	@Override
 	public String getColumnText(Object obj, int col) {
-		if (!(obj instanceof Param))
+		if (!(obj instanceof Param param))
 			return null;
-		Param param = (Param) obj;
 		if (param.parameter == null)
 			return " - ";
 		Parameter p = param.parameter;

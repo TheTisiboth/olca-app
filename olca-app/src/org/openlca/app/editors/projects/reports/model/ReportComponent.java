@@ -42,6 +42,8 @@ public enum ReportComponent {
 	/** Contributions of the processes in the variants to the LCIA results. */
 	PROCESS_CONTRIBUTION_CHART("process_contribution_chart"),
 
+	PROCESS_CONTRIBUTION_TABLE("process_contribution_table"),
+
 	LCC_ADDED_VALUES_TABLE("lcc_added_values_table"),
 
 	LCC_NET_COSTS_TABLE("lcc_net_costs_table");
@@ -52,7 +54,7 @@ public enum ReportComponent {
 		this.id = id;
 	}
 
-	public String getId() {
+	public String id() {
 		return id;
 	}
 
@@ -60,7 +62,7 @@ public enum ReportComponent {
 		if (id == null)
 			return NONE;
 		for (ReportComponent c : values()) {
-			if (Objects.equals(id, c.getId()))
+			if (Objects.equals(id, c.id()))
 				return c;
 		}
 		return NONE;

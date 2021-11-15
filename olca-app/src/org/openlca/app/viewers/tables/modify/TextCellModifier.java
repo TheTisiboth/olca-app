@@ -3,23 +3,8 @@ package org.openlca.app.viewers.tables.modify;
 public abstract class TextCellModifier<T> implements ICellModifier<T> {
 
 	@Override
-	public boolean canModify(T element) {
-		return true;
-	}
-
-	@Override
 	public final ICellModifier.CellEditingType getCellEditingType() {
 		return CellEditingType.TEXTBOX;
-	}
-
-	@Override
-	public final Object[] getValues(T element) {
-		return null;
-	}
-
-	@Override
-	public String[] getStringValues(T element) {
-		return null;
 	}
 
 	@Override
@@ -29,14 +14,10 @@ public abstract class TextCellModifier<T> implements ICellModifier<T> {
 
 	@Override
 	public void modify(T element, Object value) {
-		setText(element,
-				value != null ? !value.toString().isEmpty() ? value.toString()
-						: null : null);
-	}
-
-	@Override
-	public boolean affectsOtherElements() {
-		return false;
+		var s = value == null
+			? null
+			: value.toString();
+		setText(element, s == null || s.isEmpty() ? null : s);
 	}
 
 	protected abstract String getText(T element);

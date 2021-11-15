@@ -8,17 +8,31 @@ import org.openlca.app.navigation.elements.ModelElement;
 
 class ModelSelectionState implements ICheckStateListener {
 
-	private CheckboxTreeViewer viewer;
-	private ModelSelectionPage page;
+	private final CheckboxTreeViewer viewer;
+	private final ModelSelectionPage page;
 
-	public ModelSelectionState(ModelSelectionPage page,
-			CheckboxTreeViewer viewer) {
+	public ModelSelectionState(
+		ModelSelectionPage page, CheckboxTreeViewer viewer) {
 		this.page = page;
 		this.viewer = viewer;
 	}
 
-	private void updateChildren(INavigationElement<?> element, boolean state) {
-		for (INavigationElement<?> child : element.getChildren()) {
+	@Override
+	public void checkStateChanged(CheckStateChangedEvent event) {
+		viewer.getControl().setRedraw(false);
+		var element = (INavigationElement<?>) event.getElement();
+		viewer.setGrayed(element, false);
+		updateChildren(element, event.getChecked());
+		updateParent(element);
+		if (element instanceof ModelElement) {
+			updateSelection((ModelElement) element, event.getChecked());
+		}
+		viewer.getControl().setRedraw(true);
+		page.checkCompletion();
+	}
+
+	void updateChildren(INavigationElement<?> element, boolean state) {
+		for (var child : element.getChildren()) {
 			viewer.setGrayed(child, false);
 			viewer.setChecked(child, state);
 			if (child instanceof ModelElement) {
@@ -29,42 +43,43 @@ class ModelSelectionState implements ICheckStateListener {
 		}
 	}
 
-	private void updateParent(INavigationElement<?> element) {
-		INavigationElement<?> parent = element.getParent();
+	void updateParent(INavigationElement<?> element) {
+		var parent = element.getParent();
 		if (parent == null)
 			return;
-		boolean checked = false;
-		boolean all = true;
-		for (INavigationElement<?> child : parent.getChildren()) {
-			checked = viewer.getChecked(child) || viewer.getGrayed(child);
-			if (!viewer.getChecked(child) || viewer.getGrayed(child))
-				all = false;
+
+		// proof by contradiction
+		boolean oneChecked = false;
+		boolean allChecked = true;
+		for (var child : parent.getChildren()) {
+			var isChecked = viewer.getChecked(child);
+			var isGrayed = viewer.getGrayed(child);
+			if (isChecked || isGrayed) {
+				oneChecked = true;
+			}
+			if (!isChecked) {
+				allChecked = false;
+			}
 		}
-		viewer.setGrayed(parent, !all && checked);
-		viewer.setChecked(parent, checked);
+
+		if (allChecked) {
+			viewer.setChecked(parent, true);
+			viewer.setGrayed(parent, false);
+		} else {
+			viewer.setGrayChecked(parent, oneChecked);
+		}
 		updateParent(parent);
 	}
 
-	private void updateSelection(ModelElement element, boolean selected) {
-		var component = element.getContent();
-		if (selected)
-			page.getSelectedModels().add(component);
-		else
-			page.getSelectedModels().remove(component);
-	}
-
-	@Override
-	public void checkStateChanged(CheckStateChangedEvent event) {
-		viewer.getControl().setRedraw(false);
-		INavigationElement<?> element = (INavigationElement<?>) event
-				.getElement();
-		viewer.setGrayed(element, false);
-		updateChildren(element, event.getChecked());
-		updateParent(element);
-		if (element instanceof ModelElement) {
-			updateSelection((ModelElement) element, event.getChecked());
+	void updateSelection(ModelElement element, boolean selected) {
+		var model = element.getContent();
+		var selection = page.getSelectedModels();
+		if (model == null || selection == null)
+			return;
+		if (selected) {
+			selection.add(model);
+		} else {
+			selection.remove(model);
 		}
-		viewer.getControl().setRedraw(true);
-		page.checkCompletion();
 	}
 }

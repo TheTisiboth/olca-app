@@ -38,20 +38,20 @@ public class ComparisonPage extends FormPage {
 	protected void createFormContent(IManagedForm mform) {
 		if (target == TargetCalculationEnum.PRODUCT_SYSTEM) {
 			var e = (ResultEditor<?>) editor;
-			ScrolledForm form = UI.formHeader(mform, Labels.name(e.setup.productSystem), Images.get(e.result));
+			ScrolledForm form = UI.formHeader(mform, Labels.name(e.setup.productSystem()), Images.get(e.result));
 			FormToolkit tk = mform.getToolkit();
 			Composite body = UI.formBody(form, tk);
-			InfoSection.create(body, tk, e.setup);
+			InfoSection.create(body, tk, e.setup, target);
 			new ProductComparison(body, editor, target, tk).display();
-			form.reflow(true);
+//			form.reflow(true);
 		} else {
 			var e = (ProjectResultEditor) editor;
-			ScrolledForm form = UI.formHeader(mform, "Project : " + e.getTitle());
+			ScrolledForm form = UI.formHeader(mform, e.getTitle());
 			FormToolkit tk = mform.getToolkit();
 			Composite body = UI.formBody(form, tk);
 			InfoSection.create(body, tk, e.getData().project());
 			new ProductComparison(body, editor, target, tk).display();
-			form.reflow(true);
+//			form.reflow(true);
 		}
 	}
 }

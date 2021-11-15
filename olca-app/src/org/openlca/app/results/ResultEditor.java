@@ -1,8 +1,5 @@
 package org.openlca.app.results;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.ui.IEditorInput;
@@ -13,16 +10,14 @@ import org.openlca.app.db.Cache;
 import org.openlca.app.editors.Editors;
 import org.openlca.app.rcp.images.Icon;
 import org.openlca.app.util.Labels;
-import org.openlca.core.database.EntityCache;
-import org.openlca.core.math.CalculationSetup;
 import org.openlca.core.math.data_quality.DQResult;
-import org.openlca.core.model.ProjectVariant;
-import org.openlca.core.model.descriptors.ProductSystemDescriptor;
+import org.openlca.core.model.CalculationSetup;
 import org.openlca.core.results.ContributionResult;
 import org.openlca.core.results.FullResult;
 import org.openlca.core.results.ResultItemView;
 
-public abstract class ResultEditor<T extends ContributionResult> extends FormEditor {
+public abstract class ResultEditor<T extends ContributionResult>
+		extends FormEditor {
 
 	public T result;
 	public CalculationSetup setup;
@@ -34,10 +29,10 @@ public abstract class ResultEditor<T extends ContributionResult> extends FormEdi
 	}
 
 	public static void open(
-			CalculationSetup setup, ContributionResult result,DQResult dqResult) {
+			CalculationSetup setup, ContributionResult result, DQResult dqResult) {
 		var input = ResultEditorInput
-			.create(setup, result)
-			.with(dqResult);
+				.create(setup, result)
+				.with(dqResult);
 		var id = result instanceof FullResult
 				? AnalyzeEditor.ID
 				: QuickResultEditor.ID;
@@ -67,42 +62,28 @@ public abstract class ResultEditor<T extends ContributionResult> extends FormEdi
 	public void setFocus() {
 	}
 
-	public static class ResultEditorInput implements IEditorInput {
+	static class ResultEditorInput implements IEditorInput {
 
-		public final long productSystemId;
+		private final String name;
 		public final String resultKey;
 		public final String setupKey;
 		public String dqResultKey;
-		public final String variantKey;
 
-		private ResultEditorInput(long productSystemId, String resultKey, String setupKey, String variantKey) {
-			this.productSystemId = productSystemId;
+		private ResultEditorInput(
+				String name, String resultKey, String setupKey) {
+			this.name = name;
 			this.resultKey = resultKey;
 			this.setupKey = setupKey;
-			this.variantKey = variantKey;
 		}
 
-		public static ResultEditorInput create(CalculationSetup setup, ArrayList<ContributionResult> results, List<ProjectVariant> variants) {
+		static ResultEditorInput create(
+				CalculationSetup setup, ContributionResult result) {
 			if (setup == null)
 				return null;
-			String resultKey = Cache.getAppCache().put(results);
-			String setupKey = Cache.getAppCache().put(setup);
-			String variantKey = Cache.getAppCache().put(variants);
-			long systemId = 0;
-			if (setup.productSystem != null)
-				systemId = setup.productSystem.id;
-			return new ResultEditorInput(systemId, resultKey, setupKey, variantKey);
-		}
-
-		static ResultEditorInput create(CalculationSetup setup, ContributionResult result) {
-			if (setup == null)
-				return null;
-			String resultKey = Cache.getAppCache().put(result);
-			String setupKey = Cache.getAppCache().put(setup);
-			long systemId = 0;
-			if (setup.productSystem != null)
-				systemId = setup.productSystem.id;
-			return new ResultEditorInput(systemId, resultKey, setupKey, null);
+			var name = Labels.name(setup.target());
+			var resultKey = Cache.getAppCache().put(result);
+			var setupKey = Cache.getAppCache().put(setup);
+			return new ResultEditorInput(name, resultKey, setupKey);
 		}
 
 		/**
@@ -115,7 +96,7 @@ public abstract class ResultEditor<T extends ContributionResult> extends FormEdi
 		}
 
 		@Override
-		@SuppressWarnings({ "unchecked", "rawtypes" })
+		@SuppressWarnings({ "unchecked", "rawtypes"})
 		public Object getAdapter(Class adapter) {
 			return null;
 		}
@@ -132,11 +113,7 @@ public abstract class ResultEditor<T extends ContributionResult> extends FormEdi
 
 		@Override
 		public String getName() {
-			EntityCache cache = Cache.getEntityCache();
-			if (cache == null)
-				return "";
-			ProductSystemDescriptor d = cache.get(ProductSystemDescriptor.class, productSystemId);
-			return M.Results + ": " + Labels.name(d);
+			return M.Results + ": " + name;
 		}
 
 		@Override
@@ -149,5 +126,4 @@ public abstract class ResultEditor<T extends ContributionResult> extends FormEdi
 			return getName();
 		}
 	}
-
 }

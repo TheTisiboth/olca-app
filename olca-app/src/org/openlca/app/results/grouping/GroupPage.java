@@ -42,7 +42,7 @@ import org.openlca.app.viewers.Selections;
 import org.openlca.app.viewers.Viewers;
 import org.openlca.app.viewers.tables.Tables;
 import org.openlca.core.database.ProcessGroupSetDao;
-import org.openlca.core.math.CalculationSetup;
+import org.openlca.core.model.CalculationSetup;
 import org.openlca.core.model.FlowType;
 import org.openlca.core.model.ProcessGroup;
 import org.openlca.core.model.ProcessGroupSet;
@@ -123,7 +123,7 @@ public class GroupPage extends FormPage {
 	@Override
 	protected void createFormContent(IManagedForm mform) {
 		ScrolledForm form = UI.formHeader(mform,
-				Labels.name(setup.productSystem),
+				Labels.name(setup.target()),
 				Images.get(result));
 		FormToolkit toolkit = mform.getToolkit();
 		Composite body = UI.formBody(form, toolkit);

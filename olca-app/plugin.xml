@@ -189,7 +189,14 @@
             default="false"
             icon="icons/model/data_quality_system.png"
             id="editors.dqsystem"
-            name="%ActorEditor">
+            name="Data quality system">
+      </editor>
+      <editor
+            class="org.openlca.app.editors.results.ResultEditor"
+            default="false"
+            icon="icons/model/impact_method.png"
+            id="editors.resultmodel"
+            name="Data quality system">
       </editor>
 
       <!-- result views -->
@@ -217,23 +224,11 @@
             name="Simulation Editor">
       </editor>
       <editor
-            id="ReportViewer"
-            class="org.openlca.app.editors.projects.reports.ReportViewer"
-            icon="icons/model/project.png"
-            name="%ReportViewer"
-            contributorClass="org.openlca.app.editors.projects.reports.ReportToolbar">
-      </editor>
-      <editor
             id="ProjectResultEditor"
             class="org.openlca.app.editors.projects.results.ProjectResultEditor"
+            contributorClass="org.openlca.app.editors.projects.results.ReportResultToolbar"
             icon="icons/model/project.png"
             name="Project results">
-      </editor>
-      <editor
-            id="ReportEditor"
-            class="org.openlca.app.editors.projects.reports.ReportEditor"
-            icon="icons/model/project.png"
-            name="Report">
       </editor>
       <editor
             id="editors.LogFileEditor"
@@ -286,6 +281,22 @@
             name="Parameters">
       </editor>
 
+			<editor
+				    class="org.openlca.app.db.tables.FlowTable"
+						default="false"
+						icon="icons/model/flow.png"
+						id="DbFlowTable"
+						name="Flows">
+			</editor>
+
+			<editor
+						class="org.openlca.app.db.tables.FlowPropertyTable"
+						default="false"
+						icon="icons/model/flow_property.png"
+						id="DbFlowPropertyTable"
+						name="Flow properties">
+			</editor>
+
       <editor
             class="org.openlca.app.db.LinkingPropertiesPage"
             default="false"
@@ -310,6 +321,14 @@
             id="LibraryInfoPage"
             name="Library">
       </editor>
+
+			<editor
+						class="org.openlca.app.tools.ValidationResultView"
+						default="false"
+						icon="icons/validate.png"
+						id="ValidationResultView"
+						name="Validation result">
+			</editor>
 
    </extension>
 
@@ -405,6 +424,12 @@
             id="wizards.new.dqsystem"
             name="%DQSystems">
       </wizard>
+      <wizard
+            class="org.openlca.app.wizards.ResultWizard"
+            icon="icons/wizard/impact_method.png"
+            id="wizards.new.resultmodel"
+            name="Results">
+      </wizard>
    </extension>
 
    <extension
@@ -438,12 +463,6 @@
             class="org.openlca.app.cloud.ui.commits.HistoryView"
             id="views.cloud.history"
             name="Commit history"
-            restorable="true">
-      </view>
-      <view
-            class="org.openlca.app.validation.ValidationView"
-            id="views.problems"
-            name="Problems"
             restorable="true">
       </view>
       <view
@@ -513,7 +532,7 @@
          </property>
          <property
                name="aboutText"
-               value="openLCA 2.0.0&#x0A;&#x0A;Copyright (c) 2007 - 2020 GreenDelta. All rights reserved.&#x0A;Visit http://openlca.org and http://greendelta.com&#x0A;&#x0A;This product includes software developed in the openLCA &#x0A;project and other open source software.">
+               value="openLCA 2.0.0&#x0A;&#x0A;Copyright (c) 2007 - 2021 GreenDelta. All rights reserved.&#x0A;Visit http://openlca.org and http://greendelta.com&#x0A;&#x0A;This product includes software developed in the openLCA &#x0A;project and other open source software.">
          </property>
          <property
                name="aboutImage"
@@ -699,8 +718,8 @@
             name="File Import">
       </category>
        <category
-               id="import.category.ilcdnetwork"
-               name="%ILCDNetworkImport">
+				    id="import.category.ilcdnetwork"
+            name="%ILCDNetworkImport">
        </category>
       <wizard
             category="import.category.file"
@@ -774,13 +793,19 @@
           icon="icons/model/location.png"
           id="wizard.import.geojson"
           name="Geometries from GeoJSON">
-       </wizard>
-    <wizard
+		 </wizard>
+     <wizard
           class="org.openlca.app.wizards.io.RepositoryImportWizard"
           icon="icons/cloud/logo.png"
           id="wizard.import.repository"
-          name="Repository Import">
-    </wizard>
+          name="Repository import">
+     </wizard>
+		 <wizard
+			 class="org.openlca.app.editors.results.openepd.input.DownloadWizard"
+			 icon="icons/building.png"
+			 id="wizard.import.openepd"
+			 name="OpenEPD / EC3 import">
+		 </wizard>
    </extension>
 
    <!-- export wizards -->

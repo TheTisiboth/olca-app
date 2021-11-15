@@ -13,10 +13,10 @@ import org.slf4j.LoggerFactory;
  */
 class SimulationControl {
 
-	private Logger log = LoggerFactory.getLogger(getClass());
-	private SimulationMonitor monitor;
-	private SimulationPage page;
-	private SimulationEditor editor;
+	private final Logger log = LoggerFactory.getLogger(getClass());
+	private final SimulationMonitor monitor;
+	private final SimulationPage page;
+	private final SimulationEditor editor;
 
 	public SimulationControl(Button button, SimulationEditor editor,
 			SimulationPage page) {
@@ -35,9 +35,8 @@ class SimulationControl {
 
 	private void startProgress() {
 		try {
-			Display display = Display.getCurrent();
-			SimulationProgress progress = new SimulationProgress(display,
-					editor, page);
+			var display = Display.getCurrent();
+			var progress = new SimulationProgress(display, editor, page);
 			ModalContext.run(progress, true, monitor, display);
 		} catch (Exception e) {
 			log.error("Could not start simulation progress", e);

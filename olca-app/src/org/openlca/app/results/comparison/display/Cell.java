@@ -4,12 +4,15 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
+import org.openlca.core.database.CategoryDao;
 import org.openlca.core.database.IDatabase;
 import org.openlca.core.database.LocationDao;
 import org.openlca.core.model.descriptors.CategorizedDescriptor;
+import org.openlca.core.model.descriptors.CategoryDescriptor;
+import org.openlca.core.model.descriptors.ImpactDescriptor;
+import org.openlca.core.model.descriptors.LocationDescriptor;
 import org.openlca.core.model.descriptors.ProcessDescriptor;
 import org.openlca.core.results.Contribution;
-import org.openlca.util.Pair;
 
 public class Cell {
 
@@ -28,6 +31,34 @@ public class Cell {
 	private String tooltip;
 	private boolean isSelected;
 	static IDatabase db;
+	private int linkNumber;
+	private LocationDescriptor location;
+	private String processName;
+	private CategoryDescriptor processCategory;
+	private Cell prevCell;
+	public int x, y, width, height;
+
+	public Cell(Contribution<CategorizedDescriptor> contributionsList, double minAmount, Contributions c,
+			Cell prevCell) {
+		this.minAmount = minAmount;
+		contributions = c;
+		result = new Result(contributionsList);
+		isDrawable = false;
+		isCutoff = false;
+		this.prevCell = prevCell;
+		rgb = computeRGB();
+		isDisplayed = false;
+		isSelected = false;
+		linkNumber = 0;
+	}
+
+	public void setBounds(int x, int y, int width, int height) {
+		this.x = x;
+		this.y = y;
+		this.width = width;
+		this.height = height;
+		rectCell = new Rectangle(x, y, width, height);
+	}
 
 	public void setData(Point startingLinksPoint, Point endingLinkPoint, Rectangle rectCell, boolean isCutoff) {
 		this.startingLinksPoint = startingLinksPoint;
@@ -53,15 +84,12 @@ public class Cell {
 		this.endingLinkPoint = endingLinkPoint;
 	}
 
-	public Cell(Contribution<CategorizedDescriptor> contributionsList, double minAmount, Contributions c) {
-		this.minAmount = minAmount;
-		contributions = c;
-		result = new Result(contributionsList);
-		isDrawable = true;
-		isCutoff = false;
-		rgb = computeRGB();
-		isDisplayed = true;
-		isSelected = false;
+	public void addLinkNumber() {
+		linkNumber++;
+	}
+
+	public int getLinkNumber() {
+		return linkNumber;
 	}
 
 	public boolean isSelected() {
@@ -75,19 +103,42 @@ public class Cell {
 	private void setTooltip() {
 		var contribution = result.getContribution();
 		var locationId = ((ProcessDescriptor) contribution.item).location;
-		var locationName = new LocationDao(db).getDescriptor(locationId).code;
-		var processName = contribution.item.name + " - " + locationName;
-
-		tooltip = "Process name : " + processName + "\n" + "Amount : " + contribution.amount + " "
-				+ StringUtils.defaultIfEmpty(contribution.unit, "");
+		location = new LocationDao(db).getDescriptor(locationId);
+		processName = contribution.item.name + " - " + location.code;
+		processCategory = new CategoryDao(db).getDescriptor(contribution.item.category);
+		var category = contributions.getImpactCategory();
+		tooltip = "Process name: " + processName + "\n" + "Amount: " + contribution.amount + " "
+				+ StringUtils.defaultIfEmpty(category.referenceUnit, "") + "\n" + "Process category: "
+				+ processCategory.name;
 	}
-	
+
+	public double getContributionAmount() {
+		return result.getContribution().amount;
+	}
+
+	public LocationDescriptor getLocation() {
+		return location;
+	}
+
+	public String getProcessName() {
+		return processName;
+	}
+
+	public CategoryDescriptor getProcessCategory() {
+		return processCategory;
+	}
+
 	public CategorizedDescriptor getProcess() {
 		return result.getContribution().item;
 	}
 
+	public ImpactDescriptor getImpactCategory() {
+		return contributions.getImpactCategory();
+	}
+
 	/**
 	 * Lazy load of tooltip
+	 * 
 	 * @return The Process tooltip
 	 */
 	public String getTooltip() {
@@ -118,48 +169,25 @@ public class Cell {
 	}
 
 	public RGB computeRGB() {
-		double percentage = 0;
-		long value = 0;
-		long min = 0, max = 0;
-		Pair<Long, Long> pair = null;
-		switch (criteria) {
-		case LOCATION:
-			value = ((ProcessDescriptor) result.getContribution().item).location;
-			pair = contributions.getMinMaxLocation();
-			min = pair.first;
-			max = pair.second;
-			break;
-		case CATEGORY:
-			value = result.getContribution().item.category;
-			pair = contributions.getMinMaxCategory();
-			min = pair.first;
-			max = pair.second;
-			break;
-		default:
-			value = result.getContribution().item.id;
-			pair = contributions.getMinMaxProcessId();
-			min = pair.first;
-			max = pair.second;
-			break;
-		}
-		try {
-			percentage = (((value - min) * 100) / (max - min)) / 100.0;
-		} catch (Exception e) {
-			percentage = -1;
-		}
-		if (percentage > 100.0) { // It happens because of uncertainty of division
-			percentage = 100.0;
-		} else if (percentage == -1 || result.getContribution().amount == 0.0) {
+		if ( result.getContribution().amount == 0.0) {
 			isDrawable = false;
 			return new RGB(192, 192, 192); // Grey color for unfocused values (0 or null)
 		}
-		if (config.useGradientColor) {
-			java.awt.Color tmpColor = GradientColorHelper.numberToColorPercentage(percentage);
-			rgb = new RGB(tmpColor.getRed(), tmpColor.getGreen(), tmpColor.getBlue());
-		} else {
-			rgb = ColorPaletteHelper.getColor(percentage);
-		}
+		isDrawable = true;
+		if (prevCell != null) {
+			var rgbToBeAvoided = prevCell.getRgb();
+			rgb = getRGB(rgbToBeAvoided);
+		} else
+			rgb = getRGB(null);
 		return rgb;
+	}
+
+	private RGB getRGB(RGB rgbToAVoid) {
+		return ColorPaletteHelper.getColor(result.getProcessDescriptor(), rgbToAVoid);
+	}
+
+	public Contributions getContributions() {
+		return contributions;
 	}
 
 	public void resetDefaultRGB() {
@@ -178,6 +206,10 @@ public class Cell {
 		return isDrawable && !isCutoff && isDisplayed;
 	}
 
+	public boolean isCutoff() {
+		return isCutoff;
+	}
+
 	public void setIsDisplayed(boolean isDisplayed) {
 		this.isDisplayed = isDisplayed;
 	}
@@ -192,8 +224,10 @@ public class Cell {
 		return rectCell.contains(p);
 	}
 
-	public boolean hasSameProduct(ProcessDescriptor o) {
-		return result.getContribution().item.equals(o);
+	public boolean hasSameProduct(Cell c) {
+		if (c == null)
+			return false;
+		return result.getContribution().item.equals(c.getResult().getContribution().item);
 	}
 
 	public String toString() {
