@@ -15,22 +15,23 @@ public class Contributions {
 	private ArrayList<Cell> list;
 	private ImpactDescriptor impactCategory;
 	private String productSystemName;
-	static ColorCellCriteria criteria;
+	public static ColorCellCriteria criteria;
 	static Config config;
 	long minProcessId = -1, maxProcessId = -1;
 	double minAmount;
 	long minCategory = -1, maxCategory = -1;
 	long minLocation = -1, maxLocation = -1;
 	private List<Contribution<CategorizedDescriptor>> contributions;
-
+	public double totalImpactResults;
+	
 	public Contributions(List<Contribution<CategorizedDescriptor>> l, String productSystemName,
-			ImpactDescriptor category) {
+			ImpactDescriptor category, double totalImpactResults) {
 		contributions = l;
 		impactCategory = category;
 		this.productSystemName = productSystemName;
 		list = new ArrayList<>();
 		Result.criteria = criteria;
-
+		this.totalImpactResults = totalImpactResults;
 		minAmount = l.stream().mapToDouble(c -> c.amount).min().getAsDouble();
 		var i = 0;
 		for (Contribution<CategorizedDescriptor> contribution : l) {
@@ -42,7 +43,6 @@ public class Contributions {
 				prevCell = list.get(list.size()-1);
 			list.add(new Cell(contribution, minAmount, this, prevCell));
 			i++;
-
 		}
 	}
 
@@ -80,6 +80,7 @@ public class Contributions {
 		criteria = c;
 		Result.criteria = c;
 		Cell.criteria = c;
+		ColorPaletteHelper.criteria = c;
 	}
 
 	public String getImpactCategoryName() {

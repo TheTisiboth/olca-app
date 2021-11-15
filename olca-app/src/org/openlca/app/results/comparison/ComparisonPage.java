@@ -1,9 +1,6 @@
 package org.openlca.app.results.comparison;
 
-import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Event;
-import org.eclipse.swt.widgets.Listener;
 import org.eclipse.ui.forms.IManagedForm;
 import org.eclipse.ui.forms.editor.FormEditor;
 import org.eclipse.ui.forms.editor.FormPage;
@@ -41,25 +38,15 @@ public class ComparisonPage extends FormPage {
 	protected void createFormContent(IManagedForm mform) {
 		if (target == TargetCalculationEnum.PRODUCT_SYSTEM) {
 			var e = (ResultEditor<?>) editor;
-			ScrolledForm form = UI.formHeader(mform, Labels.name(e.setup.productSystem), Images.get(e.result));
+			ScrolledForm form = UI.formHeader(mform, Labels.name(e.setup.productSystem()), Images.get(e.result));
 			FormToolkit tk = mform.getToolkit();
 			Composite body = UI.formBody(form, tk);
 			InfoSection.create(body, tk, e.setup, target);
 			new ProductComparison(body, editor, target, tk).display();
-			body.addListener(SWT.RESIZE, new Listener() {
-
-				@Override
-				public void handleEvent(Event event) {
-					// TODO Auto-generated method stub
-					System.out.println(body.getSize());
-
-				}
-			});
-			System.out.println(body.getSize());
 //			form.reflow(true);
 		} else {
 			var e = (ProjectResultEditor) editor;
-			ScrolledForm form = UI.formHeader(mform, "Project : " + e.getTitle());
+			ScrolledForm form = UI.formHeader(mform, e.getTitle());
 			FormToolkit tk = mform.getToolkit();
 			Composite body = UI.formBody(form, tk);
 			InfoSection.create(body, tk, e.getData().project());

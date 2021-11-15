@@ -1,13 +1,19 @@
 package org.openlca.app.results.comparison.display;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.text.WordUtils;
+import org.apache.commons.math3.exception.MathIllegalArgumentException;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.PaintEvent;
 import org.eclipse.swt.events.PaintListener;
@@ -33,8 +39,10 @@ import org.eclipse.swt.widgets.Spinner;
 import org.eclipse.ui.forms.editor.FormEditor;
 import org.eclipse.ui.forms.widgets.FormToolkit;
 import org.eclipse.ui.forms.widgets.Section;
+import org.openlca.app.App;
+import org.openlca.app.M;
 import org.openlca.app.db.Database;
-import org.openlca.app.editors.projects.results.ProjectResultData;
+import org.openlca.app.editors.projects.ProjectResultData;
 import org.openlca.app.editors.projects.results.ProjectResultEditor;
 import org.openlca.app.rcp.images.Icon;
 import org.openlca.app.rcp.images.Images;
@@ -44,14 +52,18 @@ import org.openlca.app.results.comparison.component.ColorationCombo;
 import org.openlca.app.results.comparison.component.HighlightCategoryCombo;
 import org.openlca.app.results.comparison.component.ImpactCategoryTable;
 import org.openlca.app.util.Controls;
+import org.openlca.app.util.ErrorReporter;
+import org.openlca.app.util.MsgBox;
 import org.openlca.app.util.UI;
 import org.openlca.core.database.CategoryDao;
 import org.openlca.core.database.IDatabase;
 import org.openlca.core.database.ImpactMethodDao;
+import org.openlca.core.model.ImpactMethod;
 import org.openlca.core.model.ModelType;
+import org.openlca.core.model.descriptors.CategorizedDescriptor;
 import org.openlca.core.model.descriptors.CategoryDescriptor;
 import org.openlca.core.model.descriptors.ImpactDescriptor;
-import org.openlca.core.model.descriptors.ImpactMethodDescriptor;
+import org.openlca.core.results.Contribution;
 import org.openlca.core.results.ContributionResult;
 
 import com.google.common.collect.Lists;
@@ -70,9 +82,9 @@ public class ProductComparison {
 	private Map<Integer, Image> cacheMap;
 	private Color chosenCategoryColor;
 	private ContributionResult contributionResult;
-	private int cutOffSize;
+	private double cutOffSize;
 	private IDatabase db;
-	private ImpactMethodDescriptor impactMethod;
+	private ImpactMethod impactMethod;
 	private TargetCalculationEnum targetCalculation;
 	private boolean isCalculationStarted;
 	private long chosenProcessCategory;
@@ -101,13 +113,13 @@ public class ProductComparison {
 		targetCalculation = target;
 		if (target.equals(TargetCalculationEnum.PRODUCT_SYSTEM)) {
 			var e = (ResultEditor<?>) editor;
-			impactMethod = e.setup.impactMethod;
+			impactMethod = e.setup.impactMethod();
 			contributionResult = e.result;
 		} else if (target.equals(TargetCalculationEnum.PROJECT)) {
 			var e = (ProjectResultEditor) editor;
 			projectResultData = e.getData();
-			e.getData().result().getContributions(new ImpactDescriptor());
-			impactMethod = new ImpactMethodDao(db).getDescriptor(projectResultData.project().impactMethod.id);
+//			e.getData().result().getContributions(new ImpactDescriptor());
+			impactMethod = projectResultData.project().impactMethod;
 		}
 		contributionsList = new ArrayList<>();
 		cacheMap = new HashMap<>();
@@ -116,7 +128,7 @@ public class ProductComparison {
 		rectHeight = 30;
 		gapBetweenRect = 150;
 		theoreticalScreenHeight = margin.y * 2 + gapBetweenRect;
-		cutOffSize = 25;
+		cutOffSize = 1.0;
 		scrollPoint = new Point(0, 0);
 		isCalculationStarted = false;
 		impactCategoryResultsMap = new HashMap<ImpactDescriptor, List<Contributions>>();
@@ -187,6 +199,7 @@ public class ProductComparison {
 		runCalculationButton(settingsBody, row2);
 		addPaintListener();
 		addToolTipListener(row2);
+//		settingsBody.requestLayout();
 	}
 
 	/**
@@ -229,8 +242,6 @@ public class ProductComparison {
 		combo.addSelectionChangedListener(v -> {
 			if (!colorCellCriteria.name().equals(v.name)) {
 				colorCellCriteria = ColorCellCriteria.getCriteria(v.name);
-				Contributions.updateComparisonCriteria(colorCellCriteria);
-				contributionsList.stream().forEach(c -> c.updateCellsColor());
 			}
 		});
 	}
@@ -338,11 +349,13 @@ public class ProductComparison {
 		UI.gridLayout(comp2, 2, 0, 0);
 		var selectCutoff = new Spinner(comp2, SWT.BORDER);
 		UI.formLabel(comp2, tk, "  %");
-		selectCutoff.setValues(cutOffSize, 0, 100, 0, 1, 10);
+		selectCutoff.setValues((int) cutOffSize * 10, 1, 1000, 1, 1, 1);
 		selectCutoff.addModifyListener((e) -> {
 			var newCutoffSize = selectCutoff.getSelection();
-			if (newCutoffSize != cutOffSize) {
-				cutOffSize = selectCutoff.getSelection();
+			var digits = selectCutoff.getDigits();
+			var value = (newCutoffSize / Math.pow(10, digits));
+			if (value != cutOffSize) {
+				cutOffSize = value;
 			}
 		});
 	}
@@ -357,23 +370,58 @@ public class ProductComparison {
 	private void initContributionsList() {
 		var vBar = canvas.getVerticalBar();
 		contributionsList = new ArrayList<>();
+
 		if (TargetCalculationEnum.PRODUCT_SYSTEM.equals(targetCalculation)) {
+			var impactIndex = contributionResult.impactIndex();
 			if (impactMethod == null)
 				return;
 			var impactCategories = impactCategoryTable.getImpactDescriptors();
+			var totalImpactResults = contributionResult.totalImpactResults;
+//			var contribList = getContributionsList(impactCategories);
+//			contribList.forEach(withCounter((i,contribs) -> {
+//				var category = impactCategories.get(i);
+//				var idx = 0;
+//				while (idx < impactIndex.size()) {
+//					var cat = impactIndex.at(idx);
+//					if (cat.equals(category))
+//						break;
+//					idx++;
+//				}
+//				var c = new Contributions(contribs, null, category, totalImpactResults[idx]);
+//				contributionsList.add(c);
+//			}));
 			impactCategories.stream().forEach(category -> {
 				var contributionList = contributionResult.getProcessContributions(category);
-				var c = new Contributions(contributionList, null, category);
+				var idx = 0;
+				while (idx < impactIndex.size()) {
+					var cat = impactIndex.at(idx);
+					if (cat.equals(category))
+						break;
+					idx++;
+				}
+				var c = new Contributions(contributionList, null, category, totalImpactResults[idx]);
 				contributionsList.add(c);
 			});
 		} else {
+			selectedCell = null;
+			updateCaption();
 			var impactCategory = impactCategoryTable.getImpactDescriptors().get(0);
 			var resultsList = impactCategoryResultsMap.get(impactCategory);
 			if (resultsList == null) {
 				projectResultData.project().variants.stream().forEach(v -> {
 					var contributionResult = projectResultData.result().getResult(v);
+					var impactIndex = contributionResult.impactIndex();
+					var totalImpactResults = contributionResult.totalImpactResults;
 					var contributionList = contributionResult.getProcessContributions(impactCategory);
-					var c = new Contributions(contributionList, v.productSystem.name, impactCategory);
+					var idx = 0;
+					while (idx < impactIndex.size()) {
+						var cat = impactIndex.at(idx);
+						if (cat.equals(impactCategory))
+							break;
+						idx++;
+					}
+					var c = new Contributions(contributionList, v.productSystem.name, impactCategory,
+							totalImpactResults[idx]);
 					contributionsList.add(c);
 				});
 				impactCategoryResultsMap.put(impactCategory, contributionsList);
@@ -385,6 +433,36 @@ public class ProductComparison {
 		theoreticalScreenHeight = margin.y * 2 + gapBetweenRect * (contributionsList.size() - 1);
 		vBar.setMaximum(theoreticalScreenHeight);
 		sortContributions();
+	}
+
+	private List<List<Contribution<CategorizedDescriptor>>> getContributionsList(
+			List<ImpactDescriptor> impactCategories) {
+		List<List<Contribution<CategorizedDescriptor>>> contributionsList = new ArrayList<List<Contribution<CategorizedDescriptor>>>();
+		Runnable calculation = () -> {
+			try {
+				impactCategories.forEach(impactCategory -> {
+					var contributions = contributionResult.getProcessContributions(impactCategory);
+					contributionsList.add(contributions);
+				});
+
+			} catch (OutOfMemoryError e) {
+				MsgBox.error(M.OutOfMemory, M.CouldNotAllocateMemoryError);
+			} catch (MathIllegalArgumentException e) {
+				MsgBox.error("Matrix error", e.getMessage());
+			} catch (Exception e) {
+				ErrorReporter.on("Calculation failed", e);
+			}
+		};
+		App.runWithProgress(M.Calculate, calculation, () -> {
+			System.out.println(0);
+		});
+
+		return contributionsList;
+	}
+
+	public static <T> Consumer<T> withCounter(BiConsumer<Integer, T> consumer) {
+		AtomicInteger counter = new AtomicInteger(0);
+		return item -> consumer.accept(counter.getAndIncrement(), item);
 	}
 
 	/**
@@ -410,7 +488,7 @@ public class ProductComparison {
 		UI.gridLayout(comp, 1, 10, 10);
 		comp.setLayoutData(new GridData(GridData.VERTICAL_ALIGN_BEGINNING));
 		tk.createLabel(comp, "");
-		Button button = tk.createButton(comp, "Update Diagram", SWT.NONE);
+		Button button = tk.createButton(comp, "Update diagram", SWT.NONE);
 		button.setImage(Icon.RUN.get());
 
 		Controls.onSelect(button, e -> {
@@ -418,7 +496,8 @@ public class ProductComparison {
 			// Cached image, in which we draw the things, and then display it once it is
 			// finished
 			Image cache = cacheMap.get(hash);
-
+			Contributions.updateComparisonCriteria(colorCellCriteria);
+			contributionsList.stream().forEach(c -> c.updateCellsColor());
 			if (cache == null) {
 				initContributionsList();
 				contributionsList.stream().forEach(c -> c.getList().stream().forEach(cell -> {
@@ -483,7 +562,7 @@ public class ProductComparison {
 	private int computeConfigurationHash() {
 		if (impactCategoryTable != null)
 			return Objects.hash(targetCalculation, impactCategoryTable.getImpactDescriptors(), chosenCategoryColor,
-					colorCellCriteria, cutOffSize, isCalculationStarted, chosenProcessCategory, selectedCell,
+					Contributions.criteria, cutOffSize, isCalculationStarted, chosenProcessCategory, selectedCell,
 					screenSize);
 		return -1;
 	}
@@ -536,10 +615,14 @@ public class ProductComparison {
 		if (TargetCalculationEnum.PROJECT.equals(targetCalculation)) {
 			gc.drawImage(Images.get(ModelType.PRODUCT_SYSTEM), textPos.x, textPos.y + 1);
 			var wrappedSystemName = WordUtils.wrap(p.getProductSystemName(), 27);
+			wrappedSystemName += WordUtils
+					.wrap("\nTotal impact: " + p.totalImpactResults + " " + p.getImpactCategory().referenceUnit, 27);
 			gc.drawText(wrappedSystemName, textPos.x + 20, textPos.y);
 		} else {
 			gc.drawImage(Images.get(ModelType.IMPACT_CATEGORY), textPos.x, textPos.y + 1);
 			var wrappedCategoryName = WordUtils.wrap(p.getImpactCategoryName(), 27);
+			wrappedCategoryName += WordUtils
+					.wrap("\nTotal impact: " + p.totalImpactResults + " " + p.getImpactCategory().referenceUnit, 27);
 			gc.drawText(wrappedCategoryName, textPos.x + 20, textPos.y);
 		}
 
@@ -550,9 +633,9 @@ public class ProductComparison {
 
 		// Draw an arrow above the first rectangle contributions to show the way the
 		// results are ordered
-		if (contributionsIndex == 0) {
-			drawScale(gc, maxRectWidth, rectEdge);
-		}
+//		if (contributionsIndex == 0) {
+//			drawScale(gc, maxRectWidth, rectEdge);
+//		}
 
 	}
 
@@ -611,9 +694,11 @@ public class ProductComparison {
 	private void handleCells(GC gc, Point rectEdge, int contributionsIndex, Contributions contributions, int rectWidth,
 			double maxSumAmount) {
 		var cells = contributions.getList();
-		long nonCutOffNumber = (long) Math
-				.ceil(cells.stream().filter(c -> c.getAmount() != 0).count() * (1 - cutOffSize / 100.0));
-		handleNonCutOff(cells, rectWidth, rectEdge, gc, nonCutOffNumber);
+//		long nonCutOffNumber = (long) Math
+//				.ceil(cells.stream().filter(c -> c.getAmount() != 0).count() * (1 - cutOffSize / 100.0));
+		double cutoffValue = contributions.totalImpactResults * ((double) cutOffSize / 100);
+		long nonCutoffNumber = cells.stream().filter(c -> Math.abs(c.getAmount()) >= cutoffValue).count();
+		handleNonCutOff(cells, rectWidth, rectEdge, gc, nonCutoffNumber);
 
 	}
 
@@ -631,11 +716,13 @@ public class ProductComparison {
 	private void handleNonCutOff(List<Cell> cells, int totalRectangleWidth, Point rectEdge, GC gc,
 			long nonCutoffNumber) {
 		if (cutOffSize == 100 || nonCutoffNumber == 0) {
-			handleCutOff(cells, totalRectangleWidth, rectEdge, gc, cells.size(), totalRectangleWidth);
+//			handleCutOff(cells, totalRectangleWidth, rectEdge, gc, cells.size(), totalRectangleWidth);
 			return;
 		}
 		double cutoffRectangleSizeRatio = (cutOffSize / 100.0);
-		int nonCutOffWidth = (int) (totalRectangleWidth * (1 - cutoffRectangleSizeRatio));
+//		int nonCutOffWidth = (int) (totalRectangleWidth * (1 - cutoffRectangleSizeRatio));
+		int nonCutOffWidth = (int) (totalRectangleWidth * (1 - 0));
+
 		int zeroValues = (int) cells.stream().filter(c -> c.getAmount() == 0).count();
 		if (zeroValues == cells.size() - nonCutoffNumber) {
 			nonCutOffWidth = totalRectangleWidth;
@@ -650,10 +737,9 @@ public class ProductComparison {
 		var newRectangleWidth = 0;
 		var cellIndex = cells.size() - 1;
 		var selectedCells = new ArrayList<Cell>();
-		while (newRectangleWidth != nonCutOffWidth && cellIndex != -1) {
-			if (cellIndex == 0) {
-				System.out.println("0");
-			}
+		int i = 0;
+//		while (newRectangleWidth != nonCutOffWidth && i < nonCutoffNumber && cellIndex != -1) {
+		while (i < nonCutoffNumber) {
 			var cell = cells.get(cellIndex);
 
 			var percentage = Math.sqrt(cell.getNormalizedAmount()) / nonCutOffSum;
@@ -661,6 +747,8 @@ public class ProductComparison {
 			if (newRectangleWidth + cellWidth > nonCutOffWidth) {
 				cellWidth = nonCutOffWidth - newRectangleWidth;
 			}
+			if(i == nonCutoffNumber-1)
+				cellWidth = totalRectangleWidth - newRectangleWidth+1;
 
 			newRectangleWidth += cellWidth;
 			start = new Point(end.x - cellWidth, end.y);
@@ -681,11 +769,20 @@ public class ProductComparison {
 			computeEndCell(start, cell, (int) cellWidth, false);
 			end = start;
 			cellIndex--;
+			i++;
 		}
 		for (Cell cell : selectedCells) {
 			fillRectangle(gc, cell, SWT.COLOR_WHITE);
+			if (cell.equals(selectedCell)) {
+				int borderWidth = 2;
+				cell.width += borderWidth - 1;
+				cell.height += borderWidth - 1;
+				cell.x -= 1;
+				cell.y -= 1;
+				drawRectangle(gc, cell, borderWidth, SWT.COLOR_BLACK, SWT.COLOR_BLACK);
+			}
 		}
-		handleCutOff(cells, newRectangleWidth, rectEdge, gc, cellIndex + 1, totalRectangleWidth);
+//		handleCutOff(cells, newRectangleWidth, rectEdge, gc, cellIndex + 1, totalRectangleWidth);
 	}
 
 	/**
@@ -841,6 +938,16 @@ public class ProductComparison {
 		}
 	}
 
+	private void drawRectangle(GC gc, Cell cell, int borderWidth, Integer beforeColor, Integer afterColor) {
+		gc.setForeground(gc.getDevice().getSystemColor((int) beforeColor));
+		gc.setLineWidth(borderWidth);
+		gc.drawRectangle(cell.x, cell.y, cell.width, cell.height);
+		if (afterColor != null) {
+			gc.setForeground(gc.getDevice().getSystemColor(afterColor));
+		}
+		gc.setLineWidth(1);
+	}
+
 	private void fillRectangle(GC gc, Rectangle cell, RGB cellColor, Integer afterColor) {
 		gc.setBackground(new Color(gc.getDevice(), cellColor));
 
@@ -885,7 +992,7 @@ public class ProductComparison {
 					if (config.useBezierCurve) {
 						drawBezierCurve(gc, startPoint, endPoint, cell.getRgb());
 					} else {
-						drawLine(gc, startPoint, endPoint, cell.getRgb(), null);
+						drawLine(gc, startPoint, endPoint, cell.getRgb(), SWT.COLOR_BLACK);
 					}
 				}
 			}
@@ -1034,7 +1141,7 @@ public class ProductComparison {
 							var cursor = new Point(event.x - scrollPoint.x, event.y - scrollPoint.y);
 							// If the cursor is contained in the cell
 							if (cell.contains(cursor) && cell.isDisplayed()) {
-								if (cell.hasSameProduct(selectedCell)) {
+								if (cell.equals(selectedCell)) {
 									selectedCell = null;
 								} else {
 									selectedCell = cell;
@@ -1060,7 +1167,7 @@ public class ProductComparison {
 			control.dispose();
 		}
 		if (selectedCell != null) {
-			UI.gridLayout(captionBody, 2,6,10);
+			UI.gridLayout(captionBody, 2, 6, 10);
 			InfoSection.link(captionBody, "Process", selectedCell.getProcess());
 			InfoSection.link(captionBody, "Process category", selectedCell.getProcessCategory());
 			InfoSection.link(captionBody, "Location", selectedCell.getLocation());
@@ -1072,7 +1179,7 @@ public class ProductComparison {
 				contribution += " " + impactCategoryUnit;
 			new Label(captionBody, SWT.NONE).setText(contribution);
 		} else {
-			UI.gridLayout(captionBody, 2,10,10);
+			UI.gridLayout(captionBody, 2, 10, 10);
 			InfoSection.link(captionBody, "Process", null);
 			InfoSection.link(captionBody, "Process category", null);
 			InfoSection.link(captionBody, "Location", null);
@@ -1168,5 +1275,14 @@ public class ProductComparison {
 
 			}
 		});
+	}
+
+	private static double round(double value, int places) {
+		if (places < 0)
+			throw new IllegalArgumentException();
+
+		BigDecimal bd = new BigDecimal(Double.toString(value));
+		bd = bd.setScale(places, RoundingMode.HALF_UP);
+		return bd.doubleValue();
 	}
 }

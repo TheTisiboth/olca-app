@@ -43,11 +43,11 @@ public class Cell {
 		this.minAmount = minAmount;
 		contributions = c;
 		result = new Result(contributionsList);
-		isDrawable = true;
+		isDrawable = false;
 		isCutoff = false;
 		this.prevCell = prevCell;
 		rgb = computeRGB();
-		isDisplayed = true;
+		isDisplayed = false;
 		isSelected = false;
 		linkNumber = 0;
 	}
@@ -173,6 +173,7 @@ public class Cell {
 			isDrawable = false;
 			return new RGB(192, 192, 192); // Grey color for unfocused values (0 or null)
 		}
+		isDrawable = true;
 		if (prevCell != null) {
 			var rgbToBeAvoided = prevCell.getRgb();
 			rgb = getRGB(rgbToBeAvoided);
@@ -182,7 +183,7 @@ public class Cell {
 	}
 
 	private RGB getRGB(RGB rgbToAVoid) {
-		return ColorPaletteHelper.getColor(result.getProcessDescriptor(), rgbToAVoid, criteria);
+		return ColorPaletteHelper.getColor(result.getProcessDescriptor(), rgbToAVoid);
 	}
 
 	public Contributions getContributions() {

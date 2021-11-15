@@ -21,6 +21,7 @@ public class ColorPaletteHelper {
 	private static Map<Long, RGB> processIdToRGB = new HashMap<Long, RGB>();
 	private static Map<Long, RGB> locationIdToRGB = new HashMap<Long, RGB>();
 	private static Map<Long, RGB> categoryIdToRGB = new HashMap<Long, RGB>();
+	static ColorCellCriteria criteria;
 
 	private static Map<Integer, RGB> initColorsMap() {
 		RGB colorsPalette[] = { new RGB(255, 82, 82), new RGB(255, 64, 129), new RGB(224, 64, 251),
@@ -67,7 +68,7 @@ public class ColorPaletteHelper {
 		return map;
 	}
 
-	public static RGB getColor(ProcessDescriptor process, RGB rgbToAvoid, ColorCellCriteria criteria) {
+	public static RGB getColor(ProcessDescriptor process, RGB rgbToAvoid) {
 		long id = 0;
 		Map<Long, RGB> idMap = null;
 		switch (criteria) {

@@ -15,7 +15,7 @@ import org.openlca.app.util.Colors;
 import org.openlca.app.util.Controls;
 import org.openlca.app.util.Labels;
 import org.openlca.app.util.UI;
-import org.openlca.core.math.CalculationSetup;
+import org.openlca.core.model.CalculationSetup;
 import org.openlca.core.model.CategorizedEntity;
 import org.openlca.core.model.Project;
 import org.openlca.core.model.descriptors.CategorizedDescriptor;
@@ -23,13 +23,13 @@ import org.openlca.core.model.descriptors.CategorizedDescriptor;
 public class InfoSection {
 
 	static void create(Composite body, FormToolkit tk, CalculationSetup setup, TargetCalculationEnum target) {
-		if (setup == null || setup.productSystem == null)
+		if (setup == null || setup.productSystem() == null)
 			return;
 		Composite comp = UI.formSection(body, tk, M.GeneralInformation);
 		Label description = new Label(comp, SWT.WRAP);
 		description.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, true, false));
 		String descriptionText;
-		if (setup.impactMethod == null) {
+		if (setup.impactMethod() == null) {
 			description.setText(
 					"Please choose an impact method, so we are able to display some information about the selected processes. In order to do so, you have to restart the calculation.");
 			return;

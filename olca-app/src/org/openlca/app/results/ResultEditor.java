@@ -1,8 +1,5 @@
 package org.openlca.app.results;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.ui.IEditorInput;
@@ -19,7 +16,8 @@ import org.openlca.core.results.ContributionResult;
 import org.openlca.core.results.FullResult;
 import org.openlca.core.results.ResultItemView;
 
-public abstract class ResultEditor<T extends ContributionResult> extends FormEditor {
+public abstract class ResultEditor<T extends ContributionResult>
+		extends FormEditor {
 
 	public T result;
 	public CalculationSetup setup;
@@ -64,20 +62,18 @@ public abstract class ResultEditor<T extends ContributionResult> extends FormEdi
 	public void setFocus() {
 	}
 
-	public static class ResultEditorInput implements IEditorInput {
+	static class ResultEditorInput implements IEditorInput {
 
 		private final String name;
 		public final String resultKey;
 		public final String setupKey;
 		public String dqResultKey;
-		public final String variantKey;
 
 		private ResultEditorInput(
 				String name, String resultKey, String setupKey) {
 			this.name = name;
 			this.resultKey = resultKey;
 			this.setupKey = setupKey;
-			this.variantKey = variantKey;
 		}
 
 		static ResultEditorInput create(
@@ -130,5 +126,4 @@ public abstract class ResultEditor<T extends ContributionResult> extends FormEdi
 			return getName();
 		}
 	}
-
 }

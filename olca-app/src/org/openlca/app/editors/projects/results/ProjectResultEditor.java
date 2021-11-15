@@ -16,6 +16,7 @@ import org.openlca.app.editors.Editors;
 import org.openlca.app.editors.SimpleEditorInput;
 import org.openlca.app.editors.projects.ProjectResultData;
 import org.openlca.app.rcp.HtmlFolder;
+import org.openlca.app.results.comparison.ComparisonPage;
 import org.openlca.app.util.ErrorReporter;
 import org.openlca.app.util.Labels;
 import org.openlca.app.util.UI;
@@ -46,16 +47,6 @@ public class ProjectResultEditor extends FormEditor {
 		data = (ProjectResultData) obj;
 		setPartName("Result of: " + Labels.name(data.project()));
 	}
-	
-	@Override
-	protected void addPages() {
-		try {
-			addPage(getPage());
-			addPage(new ComparisonPage(this));
-		} catch (Exception e) {
-			ErrorReporter.on("failed to add pages", e);
-		}
-	}
 
 	@Override
 	protected void addPages() {
@@ -64,6 +55,7 @@ public class ProjectResultEditor extends FormEditor {
 			if (data.hasReport()) {
 				addPage(new ReportPage());
 			}
+			addPage(new ComparisonPage(this));
 		} catch (Exception e) {
 			ErrorReporter.on("Failed to open project result", e);
 		}
