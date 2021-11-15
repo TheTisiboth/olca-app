@@ -11,3 +11,6 @@ platform
 /.gitignore
 *.*~
 *.log
+
+/.project
+/.settings/org.eclipse.jdt.core.prefs
