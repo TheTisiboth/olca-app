@@ -205,7 +205,6 @@ public class ProductComparison {
 		runCalculationButton(settingsBody, row2);
 		addPaintListener();
 		addToolTipListener(row2);
-//		settingsBody.requestLayout();
 	}
 
 	/**
@@ -500,7 +499,7 @@ public class ProductComparison {
 		comp.setLayoutData(new GridData(GridData.VERTICAL_ALIGN_BEGINNING));
 		tk.createLabel(comp, "");
 		Button button = tk.createButton(comp, "Update diagram", SWT.NONE);
-		button.setImage(Icon.RUN.get());
+		button.setImage(Icon.REFRESH.get());
 
 		Controls.onSelect(button, e -> {
 			var hash = computeConfigurationHash();
@@ -619,14 +618,14 @@ public class ProductComparison {
 		if (TargetCalculationEnum.PROJECT.equals(targetCalculation)) {
 			gc.drawImage(Images.get(ModelType.PRODUCT_SYSTEM), textPos.x, textPos.y + 1);
 			var wrappedSystemName = WordUtils.wrap(p.getProductSystemName(), 27);
-			wrappedSystemName += WordUtils
-					.wrap("\nTotal impact: " + p.totalImpactResults + " " + p.getImpactCategory().referenceUnit, 27);
+			wrappedSystemName += WordUtils.wrap("\nTotal impact: " + +MathUtils.round(p.totalImpactResults, 5) + " "
+					+ p.getImpactCategory().referenceUnit, 27);
 			gc.drawText(wrappedSystemName, textPos.x + 20, textPos.y);
 		} else {
 			gc.drawImage(Images.get(ModelType.IMPACT_CATEGORY), textPos.x, textPos.y + 1);
 			var wrappedCategoryName = WordUtils.wrap(p.getImpactCategoryName(), 27);
-			wrappedCategoryName += WordUtils
-					.wrap("\nTotal impact: " + p.totalImpactResults + " " + p.getImpactCategory().referenceUnit, 27);
+			wrappedCategoryName += WordUtils.wrap("\nTotal impact: " + MathUtils.round(p.totalImpactResults, 5) + " "
+					+ p.getImpactCategory().referenceUnit, 27);
 			gc.drawText(wrappedCategoryName, textPos.x + 20, textPos.y);
 		}
 
@@ -640,7 +639,6 @@ public class ProductComparison {
 //		if (contributionsIndex == 0) {
 //			drawScale(gc, maxRectWidth, rectEdge);
 //		}
-
 	}
 
 	private void drawScale(GC gc, double maxRectWidth, Point rectEdge) {

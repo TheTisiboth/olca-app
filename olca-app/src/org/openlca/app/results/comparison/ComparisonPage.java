@@ -22,12 +22,14 @@ public class ComparisonPage extends FormPage {
 	private final FormEditor editor;
 	private TargetCalculationEnum target;
 
+	// This is in the case of a calculation run on a process, or a product system
 	public ComparisonPage(ResultEditor<?> editor) {
 		super(editor, "ComparisonDiagram", "Comparison Diagram");
 		this.editor = editor;
 		target = TargetCalculationEnum.PRODUCT_SYSTEM;
 	}
 
+	// This is in the case of a calculation run on a project
 	public ComparisonPage(ProjectResultEditor editor) {
 		super(editor, "ComparisonDiagram", "Comparison Diagram");
 		this.editor = editor;
