@@ -33,16 +33,11 @@ public class Contributions {
 		Result.criteria = criteria;
 		this.totalImpactResults = totalImpactResults;
 		minAmount = l.stream().mapToDouble(c -> c.amount).min().getAsDouble();
-		var i = 0;
 		for (Contribution<CategorizedDescriptor> contribution : l) {
 			Cell prevCell = null;
-			if(i == 13513) {
-				System.out.println();
-			}
 			if(list.size()>0)
 				prevCell = list.get(list.size()-1);
 			list.add(new Cell(contribution, minAmount, this, prevCell));
-			i++;
 		}
 	}
 

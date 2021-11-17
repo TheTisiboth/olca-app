@@ -4,6 +4,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
+import org.openlca.app.results.comparison.utils.MathUtils;
 import org.openlca.core.database.CategoryDao;
 import org.openlca.core.database.IDatabase;
 import org.openlca.core.database.LocationDao;
@@ -13,6 +14,7 @@ import org.openlca.core.model.descriptors.ImpactDescriptor;
 import org.openlca.core.model.descriptors.LocationDescriptor;
 import org.openlca.core.model.descriptors.ProcessDescriptor;
 import org.openlca.core.results.Contribution;
+import static org.openlca.app.results.comparison.utils.MathUtils.round;
 
 public class Cell {
 
@@ -27,7 +29,7 @@ public class Cell {
 	private boolean isCutoff;
 	private Contributions contributions;
 	private boolean isDisplayed;
-	private Rectangle rectCell;
+	public Rectangle rectCell;
 	private String tooltip;
 	private boolean isSelected;
 	static IDatabase db;
@@ -37,6 +39,7 @@ public class Cell {
 	private CategoryDescriptor processCategory;
 	private Cell prevCell;
 	public int x, y, width, height;
+	public double share;
 
 	public Cell(Contribution<CategorizedDescriptor> contributionsList, double minAmount, Contributions c,
 			Cell prevCell) {
@@ -50,6 +53,7 @@ public class Cell {
 		isDisplayed = false;
 		isSelected = false;
 		linkNumber = 0;
+		share = 0.0;
 	}
 
 	public void setBounds(int x, int y, int width, int height) {
@@ -107,9 +111,9 @@ public class Cell {
 		processName = contribution.item.name + " - " + location.code;
 		processCategory = new CategoryDao(db).getDescriptor(contribution.item.category);
 		var category = contributions.getImpactCategory();
-		tooltip = "Process name: " + processName + "\n" + "Amount: " + contribution.amount + " "
+		tooltip = "Process name: " + processName + "\n" + "Amount: " + MathUtils.round(contribution.amount, 5) + " "
 				+ StringUtils.defaultIfEmpty(category.referenceUnit, "") + "\n" + "Process category: "
-				+ processCategory.name;
+				+ processCategory.name + "\nShare: " + round(share, 3) + " %";
 	}
 
 	public double getContributionAmount() {
@@ -169,7 +173,7 @@ public class Cell {
 	}
 
 	public RGB computeRGB() {
-		if ( result.getContribution().amount == 0.0) {
+		if (result.getContribution().amount == 0.0) {
 			isDrawable = false;
 			return new RGB(192, 192, 192); // Grey color for unfocused values (0 or null)
 		}

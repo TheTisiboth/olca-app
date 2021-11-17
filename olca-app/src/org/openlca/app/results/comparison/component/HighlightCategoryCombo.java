@@ -38,13 +38,20 @@ public class HighlightCategoryCombo extends AbstractComboViewer<CategoryDescript
 			super.select(value);
 	}
 
+	/**
+	 * Update the category list, according to the new contributions list. We are
+	 * just takeing the whole process contributions which are shown, and get a set of
+	 * process category out of it.
+	 * 
+	 * @param contributionsList
+	 */
 	public void updateCategories(List<Contributions> contributionsList) {
-		var tmp = contributionsList.stream()
+		var tmpCategoriesRefId = contributionsList.stream()
 				.flatMap(c -> c.getList().stream().filter(cell -> cell.isLinkDrawable() && cell.getProcess() != null)
 						.map(cell -> cell.getProcess().category))
 				.distinct().collect(Collectors.toSet());
-		if (!tmp.equals(categoriesRefId)) {
-			categoriesRefId = tmp;
+		if (!tmpCategoriesRefId.equals(categoriesRefId)) {
+			categoriesRefId = tmpCategoriesRefId;
 			var categoriesDescriptors = new CategoryDao(db).getDescriptors(categoriesRefId);
 			categoriesDescriptors.sort((c1, c2) -> c1.name.compareTo(c2.name));
 			setInput(categoriesDescriptors.toArray(CategoryDescriptor[]::new));
